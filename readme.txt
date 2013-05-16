@@ -25,6 +25,11 @@ This plugin solves this problem by:
 
 == Changelog ==
 
+= Upcoming version planned =
+
+* Fix for CURL/fopen issue (see FAQ)
+* multiple Gravatar sizes (author pages require larger images)
+
 = Version 0.3.3 =
 
 * Bugfix for empty gravatar in cache
@@ -60,6 +65,12 @@ Hit the "Empty Cache" button to clear the cache database and clear out the cache
 
 These types of gravatars are not currently supported. Drop us a note and we might add this feature in next release.
 
+= When running the plugin, I get the gravatar images being posted in the plugins/fv-gravatar-cache/images folder however they are all 0 byte. =
+
+You should check [phpinfo](http://uk3.php.net/phpinfo) on your server to determine if you have allow_url_fopen enabled and if you also have curl installed and enabled.
+
+Unfortunately our plugin tries to use fopen before curl, so you can try to switch order of these two in GetFromURL() function of the plugin if you know a bit of PHP.
+
 = I want to have bigger gravatars on author profile pages. Your plugin supports only one gravatar size. Is there any workaround? =
 
 You can turn edit your template to turn off the FV Gravatar Cache just when needed, add this code right before that section in your Wordpress template php file:
@@ -69,6 +80,8 @@ You can turn edit your template to turn off the FV Gravatar Cache just when need
 In case you need the FV Gravatar Cache running later in the template, just bring it back with:
 
 &lt;?php global $FV_Gravatar_Cache; add_filter( 'get_avatar', array( &$FV_Gravatar_Cache, 'GetAvatar' ) ); ?&gt;
+
+**We plan to add multiple sizes ASAP from the settings page.**
 
 = I don't see the default gravatar on my options page! =
 
