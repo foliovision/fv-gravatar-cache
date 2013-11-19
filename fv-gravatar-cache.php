@@ -2,14 +2,16 @@
 /*
 Plugin Name: FV Gravatar Cache
 Plugin URI: http://foliovision.com/seo-tools/wordpress/plugins/fv-gravatar-cache
-Version: 0.3.3
+Version: 0.3.4
 Description: Speeds up your website by making sure the gravatars are stored on your website and not loading from the gravatar server.
 Author: Foliovision
 Author URI: http://foliovision.com
-.
 */
+
 Class FV_Gravatar_Cache {
   var $log;
+  
+  
   /*
   Init all the hooks
   */
@@ -33,6 +35,8 @@ Class FV_Gravatar_Cache {
     add_action('comment_post', array(&$this,'NewComment'), 100000, 1);
 		add_action('edit_comment', array(&$this,'NewComment'), 100000, 1);		
   }
+  
+  
   /**
    * Show warning, if no options are set
    */
@@ -41,9 +45,13 @@ Class FV_Gravatar_Cache {
       echo '<div class="updated fade"><p>FV Gravatar Cache needs to be configured before operational. Please configure it <a href="'.get_bloginfo( 'wpurl' ).'/wp-admin/options-general.php?page=fv-gravatar-cache">here</a>.</p></div>'; 
     }
   }
+  
+  
   function IsAdmin(){
     $this->dont_cache = 1;
   }
+  
+  
   /**
    * Get the data from gravatar cache table
    *
@@ -75,6 +83,8 @@ Class FV_Gravatar_Cache {
     } 
     return $fv_gravatars;
   }
+  
+  
   /**
    * Check cache directory
    */
@@ -85,6 +95,8 @@ Class FV_Gravatar_Cache {
       return is_writable( $path );
     }
   }
+  
+  
   /**
    * Close log
    *
@@ -95,6 +107,8 @@ Class FV_Gravatar_Cache {
       @fclose( $this->log );
     }
   }
+  
+  
   /**
    * Caches a single gravatar based on known email address and size. Also updates the db.
    *
@@ -125,6 +139,8 @@ Class FV_Gravatar_Cache {
     }  
   	return $gravatar_downloaded;  //  this needs to change to just picture
   }
+  
+  
   /**
    * Replace the gravatar HTML if gravatar is cached
    *
@@ -198,6 +214,8 @@ Class FV_Gravatar_Cache {
     $image = str_replace( $url, $gravatar_local, $image );
     return $image;
   }
+  
+  
   /**
    * Used to open URLs. Have to do some checks because of varying server settings
    *
@@ -238,6 +256,8 @@ Class FV_Gravatar_Cache {
   	}
   	return false;
   }
+  
+  
   /**
    * Get the cache server path
    *
@@ -254,6 +274,8 @@ Class FV_Gravatar_Cache {
     }
     return rtrim( $path, '/' ).'/';
   }
+  
+  
   /**
    * Get the cache URL
    *
@@ -267,6 +289,8 @@ Class FV_Gravatar_Cache {
     }
     return rtrim( $path, '/' ).'/';
   }
+  
+  
   /**
    * Runs before comments are displayed and caches an array with all the email addresses and gravatars in it.
    *
@@ -280,6 +304,8 @@ Class FV_Gravatar_Cache {
     wp_cache_set('fv_gravatars_set', $fv_gravatars, 'fv_gravatars', $myexpire);
     return $comments;
   }
+  
+  
   /**
    * Download a single gravatar. Provide email address and alternativelly also gravatar URL
    *
@@ -369,6 +395,8 @@ Class FV_Gravatar_Cache {
   	}     
   	return $myURL;
   }
+  
+  
   /**
    * Write something into log
    *
@@ -383,6 +411,8 @@ Class FV_Gravatar_Cache {
       //echo $string.'<br />';
     }
   }
+  
+  
   /**
    * Open log
    *
@@ -393,6 +423,8 @@ Class FV_Gravatar_Cache {
       $this->log = @fopen( $this->GetCachePath().'log.txt', "w+" );
     }
   }
+  
+  
   /**
    * Cache gravatar of new comment
    *
@@ -412,6 +444,8 @@ Class FV_Gravatar_Cache {
 		$options = get_option( 'fv_gravatar_cache');
 		return $this->Cron( $comment->comment_author_email, $options['size'] );	
   }
+  
+  
   /*
   Save settings
   */
@@ -449,6 +483,8 @@ Class FV_Gravatar_Cache {
           }   
       }
   }
+  
+  
   /**
    * Display options page
    *
@@ -593,6 +629,8 @@ Class FV_Gravatar_Cache {
     $this->CloseLog();
   }
 }
+
+
 /*
 Create the cache table
 */
@@ -620,12 +658,16 @@ function fv_gravatar_cache_activation() {
 		wp_schedule_event( time()+3300, 'hourly', 'fv_gravatar_cache_cron' );
 }
 register_activation_hook( __FILE__, 'fv_gravatar_cache_activation' );
+
+
 //add_action( 'fv_gravatar_cache_cron', array( &$FV_Gravatar_Cache, 'RunCron' ) );
 add_action( 'fv_gravatar_cache_cron', 'fv_gravatar_cache_cron_run' );
 function fv_gravatar_cache_deactivation() {
 	wp_clear_scheduled_hook('fv_gravatar_cache_cron');
 }
 register_deactivation_hook(__FILE__, 'fv_gravatar_cache_deactivation');
+
+
 /**
   * Run the cron job.
   *
@@ -654,11 +696,20 @@ function fv_gravatar_cache_cron_run( ) {
   $FV_Gravatar_Cache->OpenLog();
   $FV_Gravatar_Cache->Log( 'Processing '.count( $emails ).' gravatars'."\r\n" );
   //  process email addresses
+  
+  $start = microtime(true);
+  $iCompleted = 0;
   foreach( $emails AS $email ) {
-    $FV_Gravatar_Cache->Cron( $email, $options['size'] ); 
+    $FV_Gravatar_Cache->Cron( $email, $options['size'] );
+	$iCompleted++;
+	$time_taken = microtime(true) - $start;
+	if( $time_taken > 2) {
+	  break;
+	}
   }
+  
   //  increase offset
-  update_option( 'fv_gravatar_cache_offset', $offset+25);
+  update_option( 'fv_gravatar_cache_offset', $offset+$iCompleted);
   //  update last cron run date
   $FV_Gravatar_Cache->CloseLog();
   $options = get_option( 'fv_gravatar_cache');
@@ -666,5 +717,7 @@ function fv_gravatar_cache_cron_run( ) {
   update_option( 'fv_gravatar_cache', $options);
   //update_option( 'fv_gravatar_cache_cron_alive', 'yes!' ); 
 }
+
 $FV_Gravatar_Cache = new FV_Gravatar_Cache;
+
 ?>
