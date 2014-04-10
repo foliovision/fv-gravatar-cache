@@ -2,11 +2,17 @@
 /*
 Plugin Name: FV Gravatar Cache
 Plugin URI: http://foliovision.com/seo-tools/wordpress/plugins/fv-gravatar-cache
-Version: 0.3.4
+Version: 0.3.6
 Description: Speeds up your website by making sure the gravatars are stored on your website and not loading from the gravatar server.
 Author: Foliovision
 Author URI: http://foliovision.com
 */
+
+/*
+ 0.3.6 - purge cache after update if cache directory is set to default
+*/
+
+$fv_gravatar_cache_version = '0.3.6';
 
 Class FV_Gravatar_Cache {
   var $log;
@@ -17,6 +23,7 @@ Class FV_Gravatar_Cache {
   */
   function __construct() {
     //  admin stuff
+    add_action( 'admin_init', array( &$this, 'CheckVersion' ) );
     add_action( 'admin_init', array( &$this, 'OptionsHead' ) );
     add_action( 'admin_menu', array( &$this, 'OptionsPage') );
     add_action('wp_footer', array( &$this, 'IsAdmin' ),1 );
@@ -33,7 +40,7 @@ Class FV_Gravatar_Cache {
     add_filter( 'comments_array', array( &$this, 'CommentsArray' ) );
     //  refresh gravatars also on comment submit and save
     add_action('comment_post', array(&$this,'NewComment'), 100000, 1);
-		add_action('edit_comment', array(&$this,'NewComment'), 100000, 1);		
+    add_action('edit_comment', array(&$this,'NewComment'), 100000, 1);		
   }
   
   
@@ -122,6 +129,8 @@ Class FV_Gravatar_Cache {
   		return false;
   	if ( !is_numeric($size) )
   		$size = '96';
+    
+    $time = date('U');
     //  load the cache db
     $fv_gravatars = $this->CacheDB();
     //  check if the gravatar is in the cache db
@@ -142,13 +151,34 @@ Class FV_Gravatar_Cache {
   
   
   /**
+   * Check if is plugin after update, if so, empty cache
+   */
+  function CheckVersion() {
+    global $fv_gravatar_cache_version;
+    global $wpdb;
+    
+    $options = get_option('fv_gravatar_cache');
+    //after update?
+    if( !isset($options['version']) || ( isset($options['version']) && $options['version'] != $fv_gravatar_cache_version ) ){
+        $options['version'] = $fv_gravatar_cache_version;
+	
+	if( $options['URL'] == '' ){
+	  $wpdb->query( "TRUNCATE TABLE `{$wpdb->prefix}gravatars` " );
+	  update_option( 'fv_gravatar_cache_offset', 0 );
+	}
+	
+	update_option( 'fv_gravatar_cache', $options);
+    }
+  }
+  
+  /**
    * Replace the gravatar HTML if gravatar is cached
    *
    * @return string New HTML
    */
   function GetAvatar( $image, $id_or_email ) {
     if( is_admin() ) return $image;
-    if($this->dont_cache == 1) {
+    if( isset($this->dont_cache) && $this->dont_cache == 1) {
       return $image;
     }
     //  get the cached data
@@ -167,7 +197,7 @@ Class FV_Gravatar_Cache {
     if( !isset( $gravatars[$comment->comment_author_email] ) || $gravatars[$comment->comment_author_email]['url'] == '' ) {
       $not_in_cache = true;
     }
-    $gravatar = $gravatars[$comment->comment_author_email];
+    $gravatar = ( isset($comment->comment_author_email) && !empty($comment->comment_author_email)) ? $gravatars[$comment->comment_author_email] : false;
     //  alternative ways how to store gravatars
     //$gravatar = $wpdb->get_row( "SELECT time, url FROM `{$wpdb->prefix}gravatars` WHERE email = '{$comment->comment_author_email}' " );
     //$gravatar = get_comment_meta( $comment->comment_ID, 'gravatar' );
@@ -190,7 +220,7 @@ Class FV_Gravatar_Cache {
     //echo 'Cache: '; var_dump( $gravatar);
     //echo 'Not in cache: '.var_export( $not_in_cache, true ).' -->';
     //  what to do, if gravatar is not in cache?
-    if( $not_in_cache ) {
+    if( isset($not_in_cache) && $not_in_cache ) {
       return $image;  //  just display the remote image, don't download the gravatar
       //$gravatar = fv_get_url( $url );
       //echo 'Downloading: '; var_dump( $url );
@@ -530,6 +560,7 @@ Class FV_Gravatar_Cache {
       <?php
       //  debug output of options
       $options = get_option('fv_gravatar_cache'); //var_dump( $options );
+      $cron_offset = get_option( 'fv_gravatar_cache_offset' );
       ?>
       <?php
       global $wpdb;
@@ -566,10 +597,10 @@ Class FV_Gravatar_Cache {
               <th scope="row">Current time:</th><td><?php echo date(DATE_RFC822); ?></td>
             </tr>
             <tr valigin="top">
-              <th scope="row">Last Cron run:</th><td><?php echo $options['last_run']; ?></td>
+              <th scope="row">Last Cron run:</th><td><?php if( isset($options['last_run']) && !empty($options['last_run']) ) echo $options['last_run']; ?></td>
             </tr>
             <tr valigin="top">
-              <th scope="row">Current Cron offset:</th><td><?php echo get_option( 'fv_gravatar_cache_offset' ); ?></td>
+              <th scope="row">Current Cron offset:</th><td><?php if( isset($cron_offset) && !empty($cron_offset) ) echo $cron_offset; ?></td>
             </tr>
             <tr valigin="top">
               <th scope="row">&nbsp;</th><td>&nbsp;</td>
@@ -687,7 +718,7 @@ function fv_gravatar_cache_cron_run( ) {
   $count = count( $ids );
   //  update offset
   $offset = get_option( 'fv_gravatar_cache_offset');
-  if( $offset > $count ) {
+  if( $offset > $count || ( !isset($offset) || empty($offset) ) ) {
     $offset = 0;
     update_option( 'fv_gravatar_cache_offset', $offset );
   }
