@@ -25,37 +25,41 @@ This plugin solves this problem by:
 
 == Changelog ==
 
-= Version 0.3.6 =
+= 0.3.7 =
+
+* Added default gravatar to images directory.
+
+= 0.3.6 =
 
 * Fix for PHP warnings
 * Fix for cache disappearing after plugin upgrade (applies to users who didn't changed the cache directory)
 
-= Version 0.3.4 =
+= 0.3.4 =
 
 * Cron job limited to 2 seconds execution time
 
-= Version 0.3.3 =
+= 0.3.3 =
 
 * Bugfix for empty gravatar in cache
 
-= Version 0.3.2 =
+= 0.3.2 =
 
 * Bug fix for Wordpress 3.1 admin bar
 * Bug fix for blank gravatar
 
-= Version 0.3.1 =
+= 0.3.1 =
 
 * Better detection of missing/default gravatars
 
-= Version 0.3 =
+= 0.3 =
 
 * First public release
 
-= Version 0.2 =
+= 0.2 =
 
 * Added cron support
 
-= Version 0.1 =
+= 0.1 =
 
 * Works only for logged in users
 
