@@ -25,10 +25,6 @@ This plugin solves this problem by:
 
 == Changelog ==
 
-= 0.3.7 =
-
-* Added default gravatar to images directory.
-
 = 0.3.6 =
 
 * Fix for PHP warnings
