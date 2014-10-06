@@ -25,6 +25,11 @@ This plugin solves this problem by:
 
 == Changelog ==
 
+= 0.3.7 =
+
+* Added admin_notice warnings
+* Improving conditions, improving checking of values after submit
+
 = 0.3.6 =
 
 * Fix for PHP warnings
