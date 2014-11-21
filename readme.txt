@@ -28,7 +28,9 @@ This plugin solves this problem by:
 = 0.3.7 =
 
 * Added admin_notice warnings
+* Added a check if the cache directory is empty when the cached data is present in database - to prevent 404 errors for cache gravatars
 * Improving conditions, improving checking of values after submit
+
 
 = 0.3.6 =
 
