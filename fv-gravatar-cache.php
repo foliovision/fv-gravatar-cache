@@ -196,7 +196,7 @@ Class FV_Gravatar_Cache {
       return $image;
     }
     //  check out the cache. If the entry is not found, then you will have to insert it, no update.
-    if( !isset( $gravatars[$comment->comment_author_email] ) || $gravatars[$comment->comment_author_email]['url'] == '' ) {
+    if( isset( $gravatars ) && ( !isset( $gravatars[$comment->comment_author_email] ) || $gravatars[$comment->comment_author_email]['url'] == '' ) ) {
       $not_in_cache = true;
     }
     $gravatar = ( isset($comment->comment_author_email) && !empty($comment->comment_author_email)) ? $gravatars[$comment->comment_author_email] : false;
