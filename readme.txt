@@ -25,6 +25,10 @@ This plugin solves this problem by:
 
 == Changelog ==
 
+= 0.3.8 = 
+
+* fix for PHP warnings by Thomas van der Westen
+
 = 0.3.7 =
 
 * Added admin_notice warnings
