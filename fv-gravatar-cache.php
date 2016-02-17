@@ -2,7 +2,7 @@
 /*
 Plugin Name: FV Gravatar Cache
 Plugin URI: http://foliovision.com/seo-tools/wordpress/plugins/fv-gravatar-cache
-Version: 0.3.7
+Version: 0.3.8
 Description: Speeds up your website by making sure the gravatars are stored on your website and not loading from the gravatar server.
 Author: Foliovision
 Author URI: http://foliovision.com
@@ -701,36 +701,45 @@ Create the cache table
 */
 function fv_gravatar_cache_activation() {
     global $wpdb;
-		$wpdb->query ("CREATE TABLE IF NOT EXISTS `{$wpdb->prefix}gravatars` (
-			`id` int(11) unsigned NOT NULL auto_increment,
-			`email` VARCHAR(64) NOT NULL UNIQUE,
-			`url` mediumtext NOT NULL,
-			`time` int NOT NULL,			
-			PRIMARY KEY  (`id`)
-		)");
-		$wpdb->query ("ALTER TABLE `{$wpdb->prefix}gravatars` ADD `time` int");
-		wp_schedule_event( time(), 'hourly', 'fv_gravatar_cache_cron' );
-		wp_schedule_event( time()+300, 'hourly', 'fv_gravatar_cache_cron' );
-		wp_schedule_event( time()+600, 'hourly', 'fv_gravatar_cache_cron' );
-		wp_schedule_event( time()+900, 'hourly', 'fv_gravatar_cache_cron' );
-		wp_schedule_event( time()+1200, 'hourly', 'fv_gravatar_cache_cron' );
-		wp_schedule_event( time()+1500, 'hourly', 'fv_gravatar_cache_cron' );
-		wp_schedule_event( time()+1800, 'hourly', 'fv_gravatar_cache_cron' );
-		wp_schedule_event( time()+2100, 'hourly', 'fv_gravatar_cache_cron' );
-		wp_schedule_event( time()+2400, 'hourly', 'fv_gravatar_cache_cron' );
-		wp_schedule_event( time()+2700, 'hourly', 'fv_gravatar_cache_cron' );
-		wp_schedule_event( time()+3000, 'hourly', 'fv_gravatar_cache_cron' );
-		wp_schedule_event( time()+3300, 'hourly', 'fv_gravatar_cache_cron' );
+    $wpdb->query ("CREATE TABLE IF NOT EXISTS `{$wpdb->prefix}gravatars` (
+      `id` int(11) unsigned NOT NULL auto_increment,
+      `email` VARCHAR(64) NOT NULL UNIQUE,
+      `url` mediumtext NOT NULL,
+      `time` int NOT NULL,      
+      PRIMARY KEY  (`id`)
+    )");
+    
+    $wpdb->query ("ALTER TABLE `{$wpdb->prefix}gravatars` ADD `time` int");
 }
 register_activation_hook( __FILE__, 'fv_gravatar_cache_activation' );
 
 
-//add_action( 'fv_gravatar_cache_cron', array( &$FV_Gravatar_Cache, 'RunCron' ) );
-add_action( 'fv_gravatar_cache_cron', 'fv_gravatar_cache_cron_run' );
 function fv_gravatar_cache_deactivation() {
-	wp_clear_scheduled_hook('fv_gravatar_cache_cron');
+  wp_clear_scheduled_hook('fv_gravatar_cache_cron');
 }
 register_deactivation_hook(__FILE__, 'fv_gravatar_cache_deactivation');
+
+
+/*
+ * Cron stuff
+*/
+function fv_gravatar_cache_cron_schedules( $schedules )
+{
+  $schedules['5minutes'] = array(
+    'interval' => 300,
+    'display' => __('Every 5 minutes')
+  );
+  return $schedules;
+}
+add_filter('cron_schedules', 'fv_gravatar_cache_cron_schedules'); 
+
+
+if (is_admin()) {
+  if ( !wp_next_scheduled( 'fv_gravatar_cache_cron' ) ) {
+    wp_schedule_event( time(), '5minutes', 'fv_gravatar_cache_cron' );
+  }
+}
+add_action( 'fv_gravatar_cache_cron', 'fv_gravatar_cache_cron_run' );
 
 
 /**
