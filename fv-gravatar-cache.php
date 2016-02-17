@@ -9,11 +9,12 @@ Author URI: http://foliovision.com
 */
 
 /*CHANGELOG
+ 0.3.8 - support for retina images
  0.3.7 - repaired conditions, functionality, added warnings ...
  0.3.6 - purge cache after update if cache directory is set to default
 */
 
-$fv_gravatar_cache_version = '0.3.7';
+$fv_gravatar_cache_version = '0.3.8';
 
 Class FV_Gravatar_Cache {
   var $log;  
@@ -131,6 +132,9 @@ Class FV_Gravatar_Cache {
   		return false;
   	if ( !is_numeric($size) )
   		$size = '96';
+    if( false === ( $options = get_option('fv_gravatar_cache') ) ){
+      return;
+    }
     
     $time = date('U');
     //  load the cache db
@@ -139,16 +143,26 @@ Class FV_Gravatar_Cache {
     if( !$wpdb->get_var( "SELECT email FROM `{$wpdb->prefix}gravatars` WHERE email = '{$email}'" ) ) {
       $not_in_cache = true;
     }
-    $gravatar_downloaded = $this->Cache( $email, '', $size );
+    
+    //TODO add sizes as option in administration
+    $aGravatars = array();
+    $aGravatars[$size] = $this->Cache( $email, '', $size );
+    if( $options['retina'] ){
+      //download retina image
+      $aGravatars[($size*2)] = $this->Cache( $email, '', ($size*2) );
+    }
+    $gravatars_serialized = serialize($aGravatars);
+    
     if( $not_in_cache ) {
-      $wpdb->query( "INSERT INTO `{$wpdb->prefix}gravatars` (email,time,url) VALUES ( '{$email}', '{$time}', '{$gravatar_downloaded}' ) " );
-      $this->Log( 'INSERT, '.$gravatar_downloaded .', '.$size.', '.$email.', '.date(DATE_RFC822).' Error: '.var_export( $wpdb->last_error, true )."\r\n" );
+      $wpdb->query( "INSERT INTO `{$wpdb->prefix}gravatars` (email,time,url) VALUES ( '{$email}', '{$time}', '{$gravatars_serialized}' ) " );
+      $this->Log( 'INSERT, '.$gravatars_serialized .', '.$size.', '.$email.', '.date(DATE_RFC822).' Error: '.var_export( $wpdb->last_error, true )."\r\n" );
     }
     else {
-      $this->Log( 'UPDATE, '.$gravatar_downloaded .', '.$size.', '.$email.', '.date(DATE_RFC822)."\r\n" );
-      $wpdb->query( "UPDATE `{$wpdb->prefix}gravatars` SET url = '{$gravatar_downloaded}', time = '{$time}' WHERE email = '{$email}' " );
-    }  
-  	return $gravatar_downloaded;  //  this needs to change to just picture
+      $wpdb->query( "UPDATE `{$wpdb->prefix}gravatars` SET url = '{$gravatars_serialized}', time = '{$time}' WHERE email = '{$email}' " );
+      $this->Log( 'UPDATE, '.$gravatars_serialized .', '.$size.', '.$email.', '.date(DATE_RFC822)."\r\n" );
+    } 
+    
+  	return $aGravatars[$size];  //  this needs to change to just picture
   }
   
   
@@ -179,71 +193,52 @@ Class FV_Gravatar_Cache {
    * @return string New HTML
    */
   function GetAvatar( $image, $id_or_email ) {
-    if( is_admin() ) return $image;
+    global $comment;
+
+    if( is_admin() ){
+      return $image;
+    }
+    
+    if( false === ( $options = get_option('fv_gravatar_cache') ) ){
+      return $image;
+    }
+    
     if( isset($this->dont_cache) && $this->dont_cache == 1) {
       return $image;
     }
+    
     //  get the cached data
     $gravatars = wp_cache_get('fv_gravatars_set', 'fv_gravatars');
-    //echo '<!-- count gravatars '; echo count( $gravatars ); echo '-->';
-    global $comment, $wpdb;
-    //  match the current gravatar URL
-    preg_match( '/src=\'(.*?)\'/', $image, $url );
-    if( $url[1] ) {
-      $url = $url[1];
-    }
-    else {
-      return $image;
-    }
+    
     //  check out the cache. If the entry is not found, then you will have to insert it, no update.
     if( isset( $gravatars ) && ( !isset( $gravatars[$comment->comment_author_email] ) || $gravatars[$comment->comment_author_email]['url'] == '' ) ) {
-      $not_in_cache = true;
-    }
-    $gravatar = ( isset($comment->comment_author_email) && !empty($comment->comment_author_email)) ? $gravatars[$comment->comment_author_email] : false;
-    //  alternative ways how to store gravatars
-    //$gravatar = $wpdb->get_row( "SELECT time, url FROM `{$wpdb->prefix}gravatars` WHERE email = '{$comment->comment_author_email}' " );
-    //$gravatar = get_comment_meta( $comment->comment_ID, 'gravatar' );
-    //  set the cached flag
-    if( $gravatar != '' && $gravatar !== false ) { 
-      //  check the cache lifetime
-      /*echo '<!-- cmp '.$gravatar['time'].' '.((int)$gravatar['time'] + 3600*24).' vs. '.date( "U" ).' -->';
-      if( intval($gravatar['time']) + 3600*24 < date( "U" ) ) {
-        //get_comment_meta( $comment->user_id, 'gravatar' );
-        if( stripos( $gravatar['url'], 'blank.png' ) === FALSE ) {
-          //@unlink( $_SERVER['DOCUMENT_ROOT'].$gravatar[1] );
-        }
-        $gravatar_cached = false;
-      }
-      else {*/
-        $gravatar_cached = true;
-      /*}*/
-    }
-    //echo '<!-- gravatarcache '.date(DATE_RFC822).' ';
-    //echo 'Cache: '; var_dump( $gravatar);
-    //echo 'Not in cache: '.var_export( $not_in_cache, true ).' -->';
-    //  what to do, if gravatar is not in cache?
-    if( isset($not_in_cache) && $not_in_cache ) {
       return $image;  //  just display the remote image, don't download the gravatar
-      //$gravatar = fv_get_url( $url );
-      //echo 'Downloading: '; var_dump( $url );
-      $gravatar_local = $this->Cache( $comment->comment_author_email, '', '' );
-      //update_comment_meta( $comment->comment_ID, 'gravatar', array( date('U'), $myURL ) );   
-      $time = date('U');
-      if( $not_in_cache ) {
-        $wpdb->query( "INSERT INTO `{$wpdb->prefix}gravatars` (email,time,url) VALUES ( '{$comment->comment_author_email}', '{$time}', '{$gravatar_local}' ) " );
-      }
-      /*else {
-        $wpdb->query( "UPDATE `{$wpdb->prefix}gravatars` SET url = '{$myURL}', time = '{$time}' WHERE email = '{$comment->comment_author_email}' " );
-      }*/
     }
-    else {
-      $gravatar_local = $gravatar['url'];
-    }
-    //echo '<!-- Using: "'.$gravatar_local.'" -->';
-    if( !$gravatar_local ) {
+    
+    //  match the current gravatar URL
+    if( !preg_match( '/src=\'(.*?)\'/', $image, $url ) ){
       return $image;
     }
-    $image = str_replace( $url, $gravatar_local, $image );
+    
+    $gravatar_data = maybe_unserialize( $gravatars[$comment->comment_author_email]['url'] );
+    
+    if( is_array($gravatar_data) ){
+      $size = $options['size'];
+      
+      //replace original size image
+      if( isset($gravatar_data[$size]) ){
+        $image = str_replace( $url[1], $gravatar_data[$size], $image );
+      }
+      //replace retina size image
+      if( isset($gravatar_data[($size*2)]) && preg_match( '/srcset=\'(.*?)\'/', $image, $retina ) ){
+        $image = str_replace( $retina[1], $gravatar_data[($size*2)], $image );
+      }
+    }
+    else{
+      // we have only one url saved in database
+      $image = str_replace( $url[1], $gravatar_data, $image );
+    }
+    
     return $image;
   }
   
@@ -352,12 +347,17 @@ Class FV_Gravatar_Cache {
    * @param string $url Gravatar URL.
    * @return string Gravatar URL.
    */
-  function Cache( $email= '', $url = '' ) {
+  function Cache( $email= '', $url = '', $size = false ) {
     $options = get_option('fv_gravatar_cache');
-    if( !$options['size'] ) {
+    
+    if( !$size ){
+      $size = $options['size'];
+    }
+    
+    if( !$size ) {
       return;
     }
-    $size = $options['size'];
+    
     //  if we don't have the gravatar url, we must create it
     if( $url == '' ) {
       if ( is_ssl() )
@@ -387,15 +387,15 @@ Class FV_Gravatar_Cache {
       	elseif ( strpos($default, 'http://') === 0 )
       		$default = add_query_arg( 's', $size, $default );
       	$out = $default;
-      	$filename = 'default.png';
+      	$filename = 'default'.$size.'.png';
       }	
       //  get gravatar or report 404
     	else {
       	$out = "$host/avatar/";
       	$out .= md5( strtolower( $email ) );
-    	  $out .= $out.'?d=404'; //  this must be the first parameter in order to work with 404 instead of default gravatars
+    	  $out .= '?d=404'; //  this must be the first parameter in order to work with 404 instead of default gravatars
     	  $out .= '&s='.$size;
-    	  $filename = md5( strtolower( $email ) );
+    	  $filename = md5( strtolower( $email ) ).'x'.$size;
     	}
     	$rating = get_option('avatar_rating');
     	if ( !empty( $rating ) ) {
@@ -405,7 +405,7 @@ Class FV_Gravatar_Cache {
     //  if we know the URL already
     else {
       $out = $url;
-      $filename = md5( strtolower( $email ) );
+      $filename = md5( strtolower( $email ) ).'x'.$size;
     }
   	/*
   	Download part
@@ -432,8 +432,9 @@ Class FV_Gravatar_Cache {
         fwrite( $fh, $gravatar );
         fclose( $fh );
       }
-      }     
-      return $myURL;
+    }     
+    
+    return $myURL;
   }
   
   
@@ -497,6 +498,12 @@ Class FV_Gravatar_Cache {
               delete_option('fv_gravatar_cache_nag');
               $options['URL'] = $_POST['URL'];
               $options['size'] = $_POST['size'];
+              if( isset( $_POST['retina'] ) ) {
+                $options['retina'] = true;
+              }
+              else{
+                $options['retina'] = false;
+              }
               if( isset( $_POST['debug'] ) ) {
                 $options['debug'] = true;
               }
@@ -600,7 +607,17 @@ Class FV_Gravatar_Cache {
               <?php
               $cache = $this->CacheDB();
               foreach( $cache AS $cache_key => $cache_item ) {
-                echo '<li><img src="'.$cache_item['url'].'" width="16" height="16" /> '.$cache_key.'</li>';
+                $cache_item_data = maybe_unserialize( $cache_item['url'] );
+                if( is_array($cache_item_data) ){
+                  if( !isset( $cache_item_data[$options['size']] ) ){
+                    continue;
+                  }
+                  $item_url = $cache_item_data[$options['size']];
+                }
+                else{
+                  $item_url = $cache_item_data;
+                }
+                echo '<li><img src="'.$item_url.'" width="16" height="16" /> '.$cache_key.'</li>';
               }
               ?>
             
@@ -628,6 +645,9 @@ Class FV_Gravatar_Cache {
                 echo '<small>(<acronym title="You can get this value by checking out image properties for any of the gravatars in your browser">Guessed Gravatar size: '.$guessed_size.'</acronyme>)</small>';
               }
               ?></td>
+            </tr>
+            <tr valigin="top">
+              <th scope="row">Retina images:</th><td><input name="retina" type="checkbox" <?php if( isset( $options['retina'] ) && $options['retina'] ) echo 'checked="yes" '; ?> /> <small>(Download retina images for gravatars)</small></td>
             </tr>
             <tr valigin="top">
               <th scope="row">Daily cron:</th><td><input name="cron" type="checkbox" <?php if( isset( $options['cron'] ) && $options['cron'] ) echo 'checked="yes" '; ?> /> <small>(Will keep refreshing gravatars during day in smaller chunks)</small></td>
