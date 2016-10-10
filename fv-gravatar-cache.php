@@ -510,7 +510,7 @@ Class FV_Gravatar_Cache {
                 $options['cron'] = false;
               }
               update_option('fv_gravatar_cache', $options); 
-              $options['default'] = $this->Cache( 'default', '', $options['size'] );
+              $options['default'] = $this->Cache( 'default', '' );
               update_option('fv_gravatar_cache', $options);  
           }elseif(isset($_POST['fv_gravatar_cache_clear'])) {
               check_ajax_referer( 'fv_gravatar_cache', 'fv_gravatar_cache' );
@@ -589,7 +589,7 @@ Class FV_Gravatar_Cache {
               <th scope="row">Cache directory URL:</th><td><?php echo $this->GetCacheURL(); ?></td>
             </tr>
             <tr valigin="top">
-              <th scope="row">Default Gravatar:<br /><small>(you need to visit this settings screen for update after you change 'Default Avatar' in Wordpress 'Discussion Settings')</small></th><td><img src="<?php echo $options['default']; ?>" /></td>
+              <th scope="row">Default Gravatar:<br /><small>(Hit "Save changes" button to store locally selected "Default Avatar" from Settings -> Discussion. If you will change WordPress "Default Avatar" in future, you need to update it here as well.)</small></th><td><img src="<?php echo $options['default']; ?>" /></td>
             </tr>
             <tr valigin="top">
               <th scope="row">Cache information:</th><td><?php echo $count; ?> items in cache (<a href="#" onclick="jQuery('#fv-gravatar-cache-list').toggle(); return false">show</a>)</td>
