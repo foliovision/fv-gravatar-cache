@@ -25,6 +25,12 @@ This plugin solves this problem by:
 
 == Changelog ==
 
+= 0.4 =
+* support for retina images
+* repaired conditions, functionality, added warnings ...
+* purge cache after update if cache directory is set to default
+* added protocol independent urls
+
 = 0.3.8 = 
 
 * fix for PHP warnings by Thomas van der Westen
