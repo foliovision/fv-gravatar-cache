@@ -233,6 +233,7 @@ Class FV_Gravatar_Cache {
       $image = str_replace( $url[1], $gravatar_data, $image );
     }
     
+    $image = str_replace( array( 'http://', 'https://' ), '//', $image ); // protocol independent, faster than preg_replace
     return $image;
   }
   
@@ -313,7 +314,8 @@ Class FV_Gravatar_Cache {
     }
     
     if( $path == '' || !isset($path) ) {
-      $path = get_bloginfo( 'wpurl' ).'/wp-content/plugins/'.dirname( plugin_basename( __FILE__ ) ).'/images';
+      $wpurl = str_replace( array( 'http://', 'https://' ), '//', get_bloginfo( 'wpurl' ) ); // protocol independent, faster than preg_replace
+      $path = $wpurl.'/wp-content/plugins/'.dirname( plugin_basename( __FILE__ ) ).'/images';
     }
     return rtrim( $path, '/' ).'/';
   }
