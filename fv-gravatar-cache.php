@@ -37,7 +37,9 @@ Class FV_Gravatar_Cache {
     add_filter( 'comments_array', array( &$this, 'CommentsArray' ) );
     //  refresh gravatars also on comment submit and save
     add_action('comment_post', array(&$this,'NewComment'), 100000, 1);
-    add_action('edit_comment', array(&$this,'NewComment'), 100000, 1);		
+    add_action('edit_comment', array(&$this,'NewComment'), 100000, 1);
+
+    add_action( 'wp_ajax_load_gravatar_list', array( $this, 'load_gravatar_list' ) );
   }
   
   
@@ -49,7 +51,7 @@ Class FV_Gravatar_Cache {
       echo '<div class="updated fade"><p>FV Gravatar Cache needs to be configured before operational. Please configure it <a href="'.get_bloginfo( 'wpurl' ).'/wp-admin/options-general.php?page=fv-gravatar-cache">here</a>.</p></div>'; 
     }    
   }
-  
+
   
   function IsAdmin(){
     $this->dont_cache = 1;
@@ -62,7 +64,7 @@ Class FV_Gravatar_Cache {
    * @param array $comments Array of all the displayed comments.
    * @return array Associative array email => URL
    */
-  function CacheDB( $comments = NULL ) {
+  function CacheDB( $comments = NULL, $limit = 50, $start = 0 ) {
     global $wpdb;
     //  if array of displayed comments is present, just get the desired gravatars
     if( $comments !== NULL && count( $comments ) > 0 ) {
@@ -78,13 +80,13 @@ Class FV_Gravatar_Cache {
     }
     //  or get the whole cache data
     else {
-      $fv_gravatars = $wpdb->get_results( "SELECT email, url, time FROM `{$wpdb->prefix}gravatars` " );
+      $fv_gravatars = $wpdb->get_results( "SELECT email, url, time FROM `{$wpdb->prefix}gravatars` LIMIT {$limit} OFFSET {$start}" );
     }
     //  make it associative array
     foreach( $fv_gravatars AS $key => $value ) {
       $fv_gravatars[$value->email] = array( 'url' => $value->url, 'time' => $value->time );
       unset($fv_gravatars[$key]);
-    } 
+    }
     return $fv_gravatars;
   }
   
@@ -594,28 +596,12 @@ Class FV_Gravatar_Cache {
               <th scope="row">Default Gravatar:<br /><small>(Hit "Save changes" button to store locally selected "Default Avatar" from Settings -> Discussion. If you will change WordPress "Default Avatar" in future, you need to update it here as well.)</small></th><td><img src="<?php echo $options['default']; ?>" /></td>
             </tr>
             <tr valigin="top">
-              <th scope="row">Cache information:</th><td><?php echo $count; ?> items in cache (<a href="#" onclick="jQuery('#fv-gravatar-cache-list').toggle(); return false">show</a>)</td>
+              <th scope="row">Cache information:</th><td><?php echo $count; ?> items in cache (<a href="#" onclick="fv_gravatar_cache_load_list(0)">show</a>)</td>
             </tr>
             <tr valigin="top">
               <td colspan="2">
               <ul id="fv-gravatar-cache-list" style="display: none; ">
-              <?php
-              $cache = $this->CacheDB();
-              foreach( $cache AS $cache_key => $cache_item ) {
-                $cache_item_data = maybe_unserialize( $cache_item['url'] );
-                if( is_array($cache_item_data) ){
-                  if( !isset( $cache_item_data[$options['size']] ) ){
-                    continue;
-                  }
-                  $item_url = $cache_item_data[$options['size']];
-                }
-                else{
-                  $item_url = $cache_item_data;
-                }
-                echo '<li><img src="'.$item_url.'" width="16" height="16" /> '.$cache_key.'</li>';
-              }
-              ?>
-            
+
               </ul>
               </td>
             </tr>
@@ -660,6 +646,51 @@ Class FV_Gravatar_Cache {
         </p>
       </form>
   </div>
+
+  <style>
+  .gravatar_list_paging {
+    margin-top: 20px;
+    display: table;
+  }
+
+  .gravatar_list_paging li {
+    display: inline-block;
+  }
+
+  .gravatar_list_paging li a {
+    padding: 10px;
+    border: solid 1px #DDDDDD;
+    vertical-align: middle;
+    text-decoration: none;
+    color: #333333;
+  }
+
+  .gravatar_list_paging li a.active {
+    font-weight: bold;
+  }
+
+  </style>
+
+  <script type="text/javascript">
+  function fv_gravatar_cache_load_list( page = 0 ) {
+
+    if( page == 0 ) {
+      jQuery('#fv-gravatar-cache-list').show();
+    }
+
+    var data = {
+      'action': 'load_gravatar_list',
+      'page': page
+    };
+
+    jQuery.post(ajaxurl, data, function(response) {
+      jQuery( "#fv-gravatar-cache-list" ).html( response );
+    });
+
+    return false;
+  }
+
+  </script>
   <?php
   }
   /*
@@ -687,6 +718,64 @@ Class FV_Gravatar_Cache {
     $this->OpenLog();
     $this->Log( date(DATE_RFC822) );
     $this->CloseLog();
+  }
+
+
+  function load_gravatar_list() {
+    global $wpdb;
+    $options = get_option('fv_gravatar_cache');
+
+    $total  = $wpdb->get_var( "SELECT count( email ) FROM `{$wpdb->prefix}gravatars` " );
+    $page   = intval( $_POST['page'] );
+    $limit  = 20;
+    $start  = $limit*$page;
+
+    $cache = $this->CacheDB( null, $limit, $start );
+    foreach( $cache AS $cache_key => $cache_item ) {
+      $cache_item_data = maybe_unserialize( $cache_item['url'] );
+      if( is_array($cache_item_data) ){
+        if( !isset( $cache_item_data[$options['size']] ) ){
+          continue;
+        }
+        $item_url = $cache_item_data[$options['size']];
+      }
+      else{
+        $item_url = $cache_item_data;
+      }
+      echo '<li><img src="'.$item_url.'" width="16" height="16" /> '.$cache_key.'</li>';
+    }
+
+    // build paging
+    echo '<li>';
+      echo '<ul class="gravatar_list_paging">';
+      if( $page > 0 ) {
+        echo '<li><a href="#" onclick="fv_gravatar_cache_load_list(0)">First</a></li>';
+        echo '<li><a href="#" onclick="fv_gravatar_cache_load_list('.($page-1).')">Previous</a></li>';
+      }
+
+      for( $i = $page - 2; $i < $page + 3; $i++ ) {
+        if( $i < 0 || $i > floor($total/$limit) ) {
+          continue;
+        }
+
+        if( $page == $i ) {
+          echo '<li><a class="active" href="#" onclick="return false">'.($i+1).'</a></li>'; // user friendly paging 0 => 1
+        }
+        else {
+          echo '<li><a href="#" onclick="fv_gravatar_cache_load_list('.$i.')">'.($i+1).'</a></li>'; // user friendly paging 0 => 1
+        }
+        
+      }
+
+      if( $start+$limit < $total ) {
+        echo '<li><a href="#" onclick="fv_gravatar_cache_load_list('.( $page+1 ).')">Next</a></li>';
+        echo '<li><a href="#" onclick="fv_gravatar_cache_load_list('.floor( $total/$limit ).')">Last</a></li>';
+      }
+
+      echo '</ul>';
+    echo '</li>';
+
+    die();
   }
 }
 
