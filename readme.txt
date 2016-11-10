@@ -32,6 +32,7 @@ This plugin solves this problem by:
 * added protocol independent urls
 * adding paging for gravatars into settings screen
 * fixing perfomance issues
+* fixing security issue for debug log functionality
 
 = 0.3.8 = 
 

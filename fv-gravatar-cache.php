@@ -456,7 +456,7 @@ Class FV_Gravatar_Cache {
   function OpenLog( ) {
     $options = get_option('fv_gravatar_cache');
     if( $options['debug'] == true ) {
-      $this->log = @fopen( $this->GetCachePath().'log.txt', "w+" );
+      $this->log = @fopen( $this->GetCachePath().'log-'.md5( AUTH_SALT ).'.txt', "w+" );
     }
   }
   
@@ -632,7 +632,7 @@ Class FV_Gravatar_Cache {
               <th scope="row">Daily cron:</th><td><input name="cron" type="checkbox" <?php if( isset( $options['cron'] ) && $options['cron'] ) echo 'checked="yes" '; ?> /> <small>(Will keep refreshing gravatars during day in smaller chunks)</small></td>
             </tr>
             <tr valigin="top">
-              <th scope="row">Debug mode:</th><td><input name="debug" type="checkbox" <?php if( $options['debug'] == true ) echo 'checked="yes" '; ?> /> <small>(check <a target="_blank" href="<?php echo $this->GetCacheURL().'log.txt'; ?>">log.txt</a> file in Cache directory)</small></td>
+              <th scope="row">Debug mode:</th><td><input name="debug" type="checkbox" <?php if( $options['debug'] == true ) echo 'checked="yes" '; ?> /> <small>(check <a target="_blank" href="<?php echo $this->GetCacheURL().'log-'.md5( AUTH_SALT ).'.txt'; ?>">log.txt</a> file in Cache directory)</small></td>
             </tr>
           </tbody>
         </table>
