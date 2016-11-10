@@ -8,10 +8,11 @@ Author: Foliovision
 Author URI: http://foliovision.com
 */
 
-$fv_gravatar_cache_version = '0.4';
-
 Class FV_Gravatar_Cache {
-  var $log;  
+  // increase this number if you want to purge the truncate gravatars table:
+  private $db_version = '0.4';
+
+  var $log;
   
   /*
   Init all the hooks
@@ -164,21 +165,20 @@ Class FV_Gravatar_Cache {
    * Check if is plugin after update, if so, empty cache
    */
   function CheckVersion() {
-    global $fv_gravatar_cache_version;
     global $wpdb;
     
     $options = get_option('fv_gravatar_cache');
     //after update?
-    if( !isset($options['version']) || ( isset($options['version']) && $options['version'] != $fv_gravatar_cache_version ) ){
-        $options['version'] = $fv_gravatar_cache_version;
-	
-	if( $options['URL'] == '' ){
-	  $wpdb->query( "TRUNCATE TABLE `{$wpdb->prefix}gravatars` " );
-	  update_option( 'fv_gravatar_cache_offset', 0 );
-	}
-	
-    update_option( 'fv_gravatar_cache', $options);
-    }
+    if( !isset($options['version']) || ( isset($options['version']) && $options['version'] != $this->db_version ) ){
+      
+      if( $options['URL'] == '' ){
+        $wpdb->query( "TRUNCATE TABLE `{$wpdb->prefix}gravatars` " );
+        update_option( 'fv_gravatar_cache_offset', 0 );
+      }
+
+      $options['version'] = $this->db_version ;
+      update_option( 'fv_gravatar_cache', $options);
+      }
   }
   
   /**
