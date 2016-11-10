@@ -30,6 +30,8 @@ This plugin solves this problem by:
 * repaired conditions, functionality, added warnings ...
 * purge cache after update if cache directory is set to default
 * added protocol independent urls
+* adding paging for gravatars into settings screen
+* fixing perfomance issues
 
 = 0.3.8 = 
 

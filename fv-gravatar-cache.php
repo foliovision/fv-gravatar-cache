@@ -64,7 +64,7 @@ Class FV_Gravatar_Cache {
    * @param array $comments Array of all the displayed comments.
    * @return array Associative array email => URL
    */
-  function CacheDB( $comments = NULL, $limit = 50, $start = 0 ) {
+  function CacheDB( $comments = NULL, $limit = 1000, $start = 0 ) {
     global $wpdb;
     //  if array of displayed comments is present, just get the desired gravatars
     if( $comments !== NULL && count( $comments ) > 0 ) {
@@ -133,8 +133,6 @@ Class FV_Gravatar_Cache {
     }
     
     $time = date('U');
-    //  load the cache db
-    $fv_gravatars = $this->CacheDB();
     //  check if the gravatar is in the cache db
     if( !$wpdb->get_var( "SELECT email FROM `{$wpdb->prefix}gravatars` WHERE email = '{$email}'" ) ) {
       $not_in_cache = true;
