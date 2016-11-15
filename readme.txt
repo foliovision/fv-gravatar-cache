@@ -31,6 +31,7 @@ This plugin solves this problem by:
 * added protocol independent urls
 * added paging for gravatars into settings screen
 * changed images directory to wp-content/uploads/fv-gravatar-cache/
+* fixed cron offset reset
 * fixed images - adding .png extension as default
 * fixed perfomance issues
 * fixed PHP warning

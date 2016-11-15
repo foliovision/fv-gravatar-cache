@@ -131,16 +131,16 @@ Class FV_Gravatar_Cache {
   	if ( !is_numeric($size) )
   		$size = '96';
     if( false === ( $options = get_option('fv_gravatar_cache') ) ){
-      return;
+      return false;
     }
     
     $email  = strtolower( $email );
-    $time   = date('U');
-    //  check if the gravatar is in the cache db
-    if( !$wpdb->get_var( "SELECT email FROM `{$wpdb->prefix}gravatars` WHERE email = '{$email}'" ) ) {
-      $not_in_cache = true;
+    $time   = time();
+    $last_update = $wpdb->get_var( "SELECT `time` FROM `{$wpdb->prefix}gravatars` WHERE email = '{$email}'" );
+    if( $time < $last_update + 24*3600 ) {
+      return false;
     }
-    
+
     //TODO add sizes as option in administration
     $aGravatars = array();
     $aGravatars[$size] = $this->Cache( $email, '', $size );
@@ -150,14 +150,14 @@ Class FV_Gravatar_Cache {
     }
     $gravatars_serialized = serialize($aGravatars);
     
-    if( $not_in_cache ) {
+    if( !$last_update ) { // not in cache
       $wpdb->query( "INSERT INTO `{$wpdb->prefix}gravatars` (email,time,url) VALUES ( '{$email}', '{$time}', '{$gravatars_serialized}' ) " );
       $this->Log( 'INSERT, '.$gravatars_serialized .', '.$size.', '.$email.', '.date(DATE_RFC822).' Error: '.var_export( $wpdb->last_error, true )."\r\n" );
     }
     else {
       $wpdb->query( "UPDATE `{$wpdb->prefix}gravatars` SET url = '{$gravatars_serialized}', time = '{$time}' WHERE email = '{$email}' " );
       $this->Log( 'UPDATE, '.$gravatars_serialized .', '.$size.', '.$email.', '.date(DATE_RFC822)."\r\n" );
-    } 
+    }
     
   	return $aGravatars[$size];  //  this needs to change to just picture
   }
@@ -860,11 +860,11 @@ function fv_gravatar_cache_cron_run( ) {
     return;
   }
   //  make sure offset is not outsite the scope
-  $ids = $wpdb->get_col( "SELECT comment_ID FROM $wpdb->comments WHERE comment_author_email != '' AND comment_approved = '1' GROUP BY comment_author_email" );
-  $count = count( $ids );
+  $count = $wpdb->get_var( "SELECT COUNT( DISTINCT comment_author_email ) FROM $wpdb->comments WHERE comment_author_email != '' AND comment_approved = '1'" );
+
   //  update offset
   $offset = get_option( 'fv_gravatar_cache_offset');
-  if( $offset > $count || ( !isset($offset) || empty($offset) ) ) {
+  if( $offset >= $count || ( !isset($offset) || empty($offset) ) ) {
     $offset = 0;
     update_option( 'fv_gravatar_cache_offset', $offset );
   }
@@ -878,11 +878,11 @@ function fv_gravatar_cache_cron_run( ) {
   $iCompleted = 0;
   foreach( $emails AS $email ) {
     $FV_Gravatar_Cache->Cron( $email, $options['size'] );
-	$iCompleted++;
-	$time_taken = microtime(true) - $start;
-	if( $time_taken > 2) {
-	  break;
-	}
+    $iCompleted++;
+    $time_taken = microtime(true) - $start;
+    if( $time_taken > 2) {
+      break;
+    }
   }
   
   //  increase offset
