@@ -72,7 +72,7 @@ Class FV_Gravatar_Cache {
       //  put all the emails into string
       $all_emails = array();
       foreach( $comments AS $comment ) {
-        $all_emails[] = '\''.$comment->comment_author_email.'\'';
+        $all_emails[] = '\''. strtolower( $comment->comment_author_email ).'\'';
       }
       $all_emails = array_unique( $all_emails );
       $all_emails_string = implode( ',', $all_emails );
@@ -85,7 +85,8 @@ Class FV_Gravatar_Cache {
     }
     //  make it associative array
     foreach( $fv_gravatars AS $key => $value ) {
-      $fv_gravatars[$value->email] = array( 'url' => $value->url, 'time' => $value->time );
+      $email = strtolower($value->email);
+      $fv_gravatars[ $email ] = array( 'url' => $value->url, 'time' => $value->time );
       unset($fv_gravatars[$key]);
     }
     return $fv_gravatars;
@@ -133,7 +134,8 @@ Class FV_Gravatar_Cache {
       return;
     }
     
-    $time = date('U');
+    $email  = strtolower( $email );
+    $time   = date('U');
     //  check if the gravatar is in the cache db
     if( !$wpdb->get_var( "SELECT email FROM `{$wpdb->prefix}gravatars` WHERE email = '{$email}'" ) ) {
       $not_in_cache = true;
@@ -202,10 +204,11 @@ Class FV_Gravatar_Cache {
     }
     
     //  get the cached data
-    $gravatars = wp_cache_get('fv_gravatars_set', 'fv_gravatars');
+    $gravatars  = wp_cache_get('fv_gravatars_set', 'fv_gravatars');
+    $email      = strtolower( $comment->comment_author_email );
     
     //  check out the cache. If the entry is not found, then you will have to insert it, no update.
-    if( isset( $gravatars ) && ( !isset( $gravatars[$comment->comment_author_email] ) || $gravatars[$comment->comment_author_email]['url'] == '' ) ) {
+    if( isset( $gravatars ) && ( !isset( $gravatars[$email] ) || $gravatars[$email]['url'] == '' ) ) {
       return $image;  //  just display the remote image, don't download the gravatar
     }
     
@@ -214,7 +217,7 @@ Class FV_Gravatar_Cache {
       return $image;
     }
     
-    $gravatar_data = maybe_unserialize( $gravatars[$comment->comment_author_email]['url'] );
+    $gravatar_data = maybe_unserialize( $gravatars[$email]['url'] );
     
     if( is_array($gravatar_data) ){
       $size = $options['size'];
