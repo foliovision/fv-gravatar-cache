@@ -26,13 +26,15 @@ This plugin solves this problem by:
 == Changelog ==
 
 = 0.4 =
-* support for retina images
-* repaired conditions, functionality, added warnings ...
-* purge cache after update if cache directory is set to default
+* added support for retina images
+* added cache purge after update if cache directory is set to default
 * added protocol independent urls
-* adding paging for gravatars into settings screen
-* fixing perfomance issues
-* fixing security issue for debug log functionality
+* added paging for gravatars into settings screen
+* changed images directory to wp-content/uploads/fv-gravatar-cache/
+* fixed images - adding .png extension as default
+* fixed perfomance issues
+* fixed PHP warning
+* fixed security issue for debug log functionality
 
 = 0.3.8 = 
 

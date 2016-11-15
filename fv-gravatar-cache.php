@@ -173,10 +173,8 @@ Class FV_Gravatar_Cache {
     //after update?
     if( !isset($options['version']) || ( isset($options['version']) && $options['version'] != $this->db_version ) ){
       
-      if( $options['URL'] == '' ){
-        $wpdb->query( "TRUNCATE TABLE `{$wpdb->prefix}gravatars` " );
-        update_option( 'fv_gravatar_cache_offset', 0 );
-      }
+      $wpdb->query( "TRUNCATE TABLE `{$wpdb->prefix}gravatars` " );
+      update_option( 'fv_gravatar_cache_offset', 0 );
 
       $options['version'] = $this->db_version ;
       update_option( 'fv_gravatar_cache', $options);
@@ -282,13 +280,9 @@ Class FV_Gravatar_Cache {
   }
   
   
-  /**
-   * Get the cache server path
-   *
-   * @return string
-   */
-  function GetCachePath() {
-    $options = get_option('fv_gravatar_cache');
+  function GetCache( $url = false ) {
+    // Custom upload path disabled
+    /*$options = get_option('fv_gravatar_cache');
     
     if(isset($options['URL'])){
       $path = $options['URL'];
@@ -296,10 +290,41 @@ Class FV_Gravatar_Cache {
     
     if( $path == '' || !isset($path) ) {
       $path = WP_PLUGIN_DIR.'/'.dirname( plugin_basename( __FILE__ ) ).'/images';
-    }else {
-      $path = $_SERVER['DOCUMENT_ROOT'].$path;
+    }*/
+
+
+    if ( ! WP_Filesystem(true) ) {
+      return false;
     }
-    return rtrim( $path, '/' ).'/';  
+
+    global $wp_filesystem;
+
+    $aUpload    = wp_upload_dir();
+    $upload_dir = '/fv-gravatar-cache';
+
+    if( !$wp_filesystem->exists($aUpload['basedir'] . $upload_dir . '/') && !$wp_filesystem->mkdir($aUpload['basedir'] . $upload_dir . '/') ) {
+      return false;
+    }
+
+    if( $url ) {
+      $cache = $aUpload['baseurl']. $upload_dir . '/';
+      $cache = str_replace( array( 'http:', 'https:' ), '', $cache );
+    }
+    else {
+      $cache = $aUpload['basedir']. $upload_dir . '/';
+    }
+
+    return $cache;
+  }
+
+
+  /**
+   * Get the cache server path
+   *
+   * @return string
+   */
+  function GetCachePath() {
+    return $this->GetCache( false );
   }
   
   
@@ -309,17 +334,7 @@ Class FV_Gravatar_Cache {
    * @return string
    */
   function GetCacheURL() {
-    $options = get_option('fv_gravatar_cache');
-    
-    if(isset($options['URL'])){
-      $path = $options['URL'];
-    }
-    
-    if( $path == '' || !isset($path) ) {
-      $wpurl = str_replace( array( 'http://', 'https://' ), '//', get_bloginfo( 'wpurl' ) ); // protocol independent, faster than preg_replace
-      $path = $wpurl.'/wp-content/plugins/'.dirname( plugin_basename( __FILE__ ) ).'/images';
-    }
-    return rtrim( $path, '/' ).'/';
+    return $this->GetCache( true );
   }
   
   
@@ -494,7 +509,7 @@ Class FV_Gravatar_Cache {
           if(isset($_POST['fv_gravatar_cache_save'])) {              
               check_ajax_referer( 'fv_gravatar_cache', 'fv_gravatar_cache' );
               delete_option('fv_gravatar_cache_nag');
-              $options['URL'] = $_POST['URL'];
+              //$options['URL'] = $_POST['URL'];
               $options['size'] = $_POST['size'];
               if( isset( $_POST['retina'] ) ) {
                 $options['retina'] = true;
@@ -618,9 +633,12 @@ Class FV_Gravatar_Cache {
             <tr valigin="top">
               <th scope="row">&nbsp;</th><td>&nbsp;</td>
             </tr>
+
+            <?php /*
             <tr valigin="top">
               <th scope="row">Custom Cache directory URL:</th><td><input name="URL" type="text" value="<?php if(isset($options['URL'])) echo $options['URL']; ?>" size="50" /> <small>(Leave empty for PLUGIN_DIR/images)</small></td>
             </tr>
+            */ ?>
             <tr valigin="top">
               <th scope="row">Gravatar size:</th><td><input name="size" type="text" value="<?php if( isset($options['size']) ) echo $options['size']; else echo '96';  ?>" size="8" />
               <?php if(isset( $guessed_size ) ) {
