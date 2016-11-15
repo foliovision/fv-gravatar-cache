@@ -385,7 +385,7 @@ Class FV_Gravatar_Cache {
       	elseif ( strpos($default, 'http://') === 0 )
       		$default = add_query_arg( 's', $size, $default );
       	$out = $default;
-      	$filename = 'default'.$size.'.png';
+      	$filename = 'default'.$size;
       }	
       //  get gravatar or report 404
     	else {
@@ -422,8 +422,8 @@ Class FV_Gravatar_Cache {
   	      return $options['default'];
   	  }
   	  ///  	  
-      $myURL = $this->GetCacheURL().$filename;
-      $myFile = $this->GetCachePath().$filename;
+      $myURL = $this->GetCacheURL().$filename.'.png';
+      $myFile = $this->GetCachePath().$filename.'.png';
       
       $fh = fopen( $myFile, 'w' );
       if( $fh ) {
