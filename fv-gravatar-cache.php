@@ -281,6 +281,8 @@ Class FV_Gravatar_Cache {
   
   
   function GetCache( $url = false ) {
+    require_once(ABSPATH . 'wp-admin/includes/file.php');
+
     // Custom upload path disabled
     /*$options = get_option('fv_gravatar_cache');
     
@@ -291,7 +293,6 @@ Class FV_Gravatar_Cache {
     if( $path == '' || !isset($path) ) {
       $path = WP_PLUGIN_DIR.'/'.dirname( plugin_basename( __FILE__ ) ).'/images';
     }*/
-
 
     if ( ! WP_Filesystem(true) ) {
       return false;
