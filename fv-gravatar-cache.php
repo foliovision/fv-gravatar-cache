@@ -176,6 +176,8 @@ Class FV_Gravatar_Cache {
 
     //after update on 0.4 or higher
     if( !isset( $options['version'] ) || version_compare( $options['version'], '0.4', '<' ) ) {
+      wp_clear_scheduled_hook('fv_gravatar_cache_cron');
+      
       $wpdb->query( "TRUNCATE TABLE `{$wpdb->prefix}gravatars` " );
       update_option( 'fv_gravatar_cache_offset', 0 );
 
