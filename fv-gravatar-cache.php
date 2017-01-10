@@ -9,7 +9,6 @@ Author URI: http://foliovision.com
 */
 
 Class FV_Gravatar_Cache {
-  // increase this number if you want to purge the truncate gravatars table:
   private $version = '0.4';
 
   var $log;
