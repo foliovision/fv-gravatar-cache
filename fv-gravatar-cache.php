@@ -10,7 +10,7 @@ Author URI: http://foliovision.com
 
 Class FV_Gravatar_Cache {
   // increase this number if you want to purge the truncate gravatars table:
-  private $db_version = '0.4';
+  private $version = '0.4';
 
   var $log;
   
@@ -49,8 +49,12 @@ Class FV_Gravatar_Cache {
    */
   function AdminNotices() {
     if( get_option( 'fv_gravatar_cache_nag') ) {
-      echo '<div class="updated fade"><p>FV Gravatar Cache needs to be configured before operational. Please configure it <a href="'.get_bloginfo( 'wpurl' ).'/wp-admin/options-general.php?page=fv-gravatar-cache">here</a>.</p></div>'; 
-    }    
+      echo '<div class="notice notice-info"><p>FV Gravatar Cache needs to be configured before operational. Please configure it <a href="'.get_bloginfo( 'wpurl' ).'/wp-admin/options-general.php?page=fv-gravatar-cache">here</a>.</p></div>';
+    }
+
+    if( get_option( 'fv_gravatar_cache_directory_changed') ) {
+      echo '<div class="notice notice-warning"><p>FV Gravatar Cache directory has been changed. Please purge cache in all other caching plugins. <a href="'.get_bloginfo( 'wpurl' ).'/wp-admin/options-general.php?page=fv-gravatar-cache&dismiss_directory_change_notice"><strong>I understand</strong></a></p></div>'; 
+    }
   }
 
   
@@ -169,16 +173,21 @@ Class FV_Gravatar_Cache {
   function CheckVersion() {
     global $wpdb;
     
-    $options = get_option('fv_gravatar_cache');
-    //after update?
-    if( !isset($options['version']) || ( isset($options['version']) && $options['version'] != $this->db_version ) ){
-      
+    $options = get_option( 'fv_gravatar_cache', array() );
+
+    //after update on 0.4 or higher
+    if( !isset( $options['version'] ) || version_compare( $options['version'], '0.4', '<' ) ) {
       $wpdb->query( "TRUNCATE TABLE `{$wpdb->prefix}gravatars` " );
       update_option( 'fv_gravatar_cache_offset', 0 );
 
-      $options['version'] = $this->db_version ;
+      update_option( 'fv_gravatar_cache_directory_changed', true );
+    }
+
+    //version change
+    if( !isset( $option['version'] ) || $options['version'] != $this->version ) {
+      $options['version'] = $this->version ;
       update_option( 'fv_gravatar_cache', $options);
-      }
+    }
   }
   
   /**
@@ -507,7 +516,7 @@ Class FV_Gravatar_Cache {
   function OptionsHead() {
       if(stripos($_SERVER['REQUEST_URI'],'/options-general.php?page=fv-gravatar-cache')!==FALSE) {
           $options = get_option('fv_gravatar_cache');
-          if(isset($_POST['fv_gravatar_cache_save'])) {              
+          if(isset($_POST['fv_gravatar_cache_save'])) {
               check_ajax_referer( 'fv_gravatar_cache', 'fv_gravatar_cache' );
               delete_option('fv_gravatar_cache_nag');
               //$options['URL'] = $_POST['URL'];
@@ -533,15 +542,21 @@ Class FV_Gravatar_Cache {
               update_option('fv_gravatar_cache', $options); 
               $options['default'] = $this->Cache( 'default', '' );
               update_option('fv_gravatar_cache', $options);  
-          }elseif(isset($_POST['fv_gravatar_cache_clear'])) {
+          }
+          elseif(isset($_POST['fv_gravatar_cache_clear'])) {
               check_ajax_referer( 'fv_gravatar_cache', 'fv_gravatar_cache' );
               global $wpdb;
               $wpdb->query( "TRUNCATE TABLE `{$wpdb->prefix}gravatars` " );
               update_option( 'fv_gravatar_cache_offset', 0 );
-          }elseif(isset($_POST['fv_gravatar_cache_refresh'])) {
+          }
+          elseif(isset($_POST['fv_gravatar_cache_refresh'])) {
               check_ajax_referer( 'fv_gravatar_cache', 'fv_gravatar_cache' );
               fv_gravatar_cache_cron_run();
-          }      
+          }
+
+          if( isset( $_GET['dismiss_directory_change_notice'] ) ) {
+            delete_option( 'fv_gravatar_cache_directory_changed' );
+          }
       }
   }
   
