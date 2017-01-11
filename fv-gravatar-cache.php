@@ -2,16 +2,16 @@
 /*
 Plugin Name: FV Gravatar Cache
 Plugin URI: http://foliovision.com/seo-tools/wordpress/plugins/fv-gravatar-cache
-Version: 0.3.8
+Version: 0.4
 Description: Speeds up your website by making sure the gravatars are stored on your website and not loading from the gravatar server.
 Author: Foliovision
 Author URI: http://foliovision.com
 */
 
-$fv_gravatar_cache_version = '0.3.8';
-
 Class FV_Gravatar_Cache {
-  var $log;  
+  private $version = '0.4';
+
+  var $log;
   
   /*
   Init all the hooks
@@ -37,7 +37,9 @@ Class FV_Gravatar_Cache {
     add_filter( 'comments_array', array( &$this, 'CommentsArray' ) );
     //  refresh gravatars also on comment submit and save
     add_action('comment_post', array(&$this,'NewComment'), 100000, 1);
-    add_action('edit_comment', array(&$this,'NewComment'), 100000, 1);		
+    add_action('edit_comment', array(&$this,'NewComment'), 100000, 1);
+
+    add_action( 'wp_ajax_load_gravatar_list', array( $this, 'load_gravatar_list' ) );
   }
   
   
@@ -46,10 +48,14 @@ Class FV_Gravatar_Cache {
    */
   function AdminNotices() {
     if( get_option( 'fv_gravatar_cache_nag') ) {
-      echo '<div class="updated fade"><p>FV Gravatar Cache needs to be configured before operational. Please configure it <a href="'.get_bloginfo( 'wpurl' ).'/wp-admin/options-general.php?page=fv-gravatar-cache">here</a>.</p></div>'; 
-    }    
+      echo '<div class="notice notice-info"><p>FV Gravatar Cache needs to be configured before operational. Please configure it <a href="'.get_bloginfo( 'wpurl' ).'/wp-admin/options-general.php?page=fv-gravatar-cache">here</a>.</p></div>';
+    }
+
+    if( get_option( 'fv_gravatar_cache_directory_changed') ) {
+      echo '<div class="notice notice-warning"><p>FV Gravatar Cache directory has been changed. Please purge cache in all other caching plugins. <a href="'.get_bloginfo( 'wpurl' ).'/wp-admin/options-general.php?page=fv-gravatar-cache&dismiss_directory_change_notice"><strong>I understand</strong></a></p></div>'; 
+    }
   }
-  
+
   
   function IsAdmin(){
     $this->dont_cache = 1;
@@ -62,14 +68,14 @@ Class FV_Gravatar_Cache {
    * @param array $comments Array of all the displayed comments.
    * @return array Associative array email => URL
    */
-  function CacheDB( $comments = NULL ) {
+  function CacheDB( $comments = NULL, $limit = 1000, $start = 0 ) {
     global $wpdb;
     //  if array of displayed comments is present, just get the desired gravatars
     if( $comments !== NULL && count( $comments ) > 0 ) {
       //  put all the emails into string
       $all_emails = array();
       foreach( $comments AS $comment ) {
-        $all_emails[] = '\''.$comment->comment_author_email.'\'';
+        $all_emails[] = '\''. strtolower( $comment->comment_author_email ).'\'';
       }
       $all_emails = array_unique( $all_emails );
       $all_emails_string = implode( ',', $all_emails );
@@ -78,13 +84,14 @@ Class FV_Gravatar_Cache {
     }
     //  or get the whole cache data
     else {
-      $fv_gravatars = $wpdb->get_results( "SELECT email, url, time FROM `{$wpdb->prefix}gravatars` " );
+      $fv_gravatars = $wpdb->get_results( "SELECT email, url, time FROM `{$wpdb->prefix}gravatars` LIMIT {$limit} OFFSET {$start}" );
     }
     //  make it associative array
     foreach( $fv_gravatars AS $key => $value ) {
-      $fv_gravatars[$value->email] = array( 'url' => $value->url, 'time' => $value->time );
+      $email = strtolower($value->email);
+      $fv_gravatars[ $email ] = array( 'url' => $value->url, 'time' => $value->time );
       unset($fv_gravatars[$key]);
-    } 
+    }
     return $fv_gravatars;
   }
   
@@ -127,17 +134,16 @@ Class FV_Gravatar_Cache {
   	if ( !is_numeric($size) )
   		$size = '96';
     if( false === ( $options = get_option('fv_gravatar_cache') ) ){
-      return;
+      return false;
     }
     
-    $time = date('U');
-    //  load the cache db
-    $fv_gravatars = $this->CacheDB();
-    //  check if the gravatar is in the cache db
-    if( !$wpdb->get_var( "SELECT email FROM `{$wpdb->prefix}gravatars` WHERE email = '{$email}'" ) ) {
-      $not_in_cache = true;
+    $email  = strtolower( $email );
+    $time   = time();
+    $last_update = $wpdb->get_var( "SELECT `time` FROM `{$wpdb->prefix}gravatars` WHERE email = '{$email}'" );
+    if( $time < $last_update + 24*3600 ) {
+      return false;
     }
-    
+
     //TODO add sizes as option in administration
     $aGravatars = array();
     $aGravatars[$size] = $this->Cache( $email, '', $size );
@@ -147,14 +153,14 @@ Class FV_Gravatar_Cache {
     }
     $gravatars_serialized = serialize($aGravatars);
     
-    if( $not_in_cache ) {
+    if( !$last_update ) { // not in cache
       $wpdb->query( "INSERT INTO `{$wpdb->prefix}gravatars` (email,time,url) VALUES ( '{$email}', '{$time}', '{$gravatars_serialized}' ) " );
       $this->Log( 'INSERT, '.$gravatars_serialized .', '.$size.', '.$email.', '.date(DATE_RFC822).' Error: '.var_export( $wpdb->last_error, true )."\r\n" );
     }
     else {
       $wpdb->query( "UPDATE `{$wpdb->prefix}gravatars` SET url = '{$gravatars_serialized}', time = '{$time}' WHERE email = '{$email}' " );
       $this->Log( 'UPDATE, '.$gravatars_serialized .', '.$size.', '.$email.', '.date(DATE_RFC822)."\r\n" );
-    } 
+    }
     
   	return $aGravatars[$size];  //  this needs to change to just picture
   }
@@ -164,20 +170,24 @@ Class FV_Gravatar_Cache {
    * Check if is plugin after update, if so, empty cache
    */
   function CheckVersion() {
-    global $fv_gravatar_cache_version;
     global $wpdb;
     
-    $options = get_option('fv_gravatar_cache');
-    //after update?
-    if( !isset($options['version']) || ( isset($options['version']) && $options['version'] != $fv_gravatar_cache_version ) ){
-        $options['version'] = $fv_gravatar_cache_version;
-	
-	if( $options['URL'] == '' ){
-	  $wpdb->query( "TRUNCATE TABLE `{$wpdb->prefix}gravatars` " );
-	  update_option( 'fv_gravatar_cache_offset', 0 );
-	}
-	
-    update_option( 'fv_gravatar_cache', $options);
+    $options = get_option( 'fv_gravatar_cache', array() );
+
+    //after update on 0.4 or higher
+    if( !isset( $options['version'] ) || version_compare( $options['version'], '0.4', '<' ) ) {
+      wp_clear_scheduled_hook('fv_gravatar_cache_cron');
+      
+      $wpdb->query( "TRUNCATE TABLE `{$wpdb->prefix}gravatars` " );
+      update_option( 'fv_gravatar_cache_offset', 0 );
+
+      update_option( 'fv_gravatar_cache_directory_changed', true );
+    }
+
+    //version change
+    if( !isset( $option['version'] ) || $options['version'] != $this->version ) {
+      $options['version'] = $this->version ;
+      update_option( 'fv_gravatar_cache', $options);
     }
   }
   
@@ -202,10 +212,11 @@ Class FV_Gravatar_Cache {
     }
     
     //  get the cached data
-    $gravatars = wp_cache_get('fv_gravatars_set', 'fv_gravatars');
+    $gravatars  = wp_cache_get('fv_gravatars_set', 'fv_gravatars');
+    $email      = strtolower( $comment->comment_author_email );
     
     //  check out the cache. If the entry is not found, then you will have to insert it, no update.
-    if( isset( $gravatars ) && ( !isset( $gravatars[$comment->comment_author_email] ) || $gravatars[$comment->comment_author_email]['url'] == '' ) ) {
+    if( isset( $gravatars ) && ( !isset( $gravatars[$email] ) || $gravatars[$email]['url'] == '' ) ) {
       return $image;  //  just display the remote image, don't download the gravatar
     }
     
@@ -214,25 +225,29 @@ Class FV_Gravatar_Cache {
       return $image;
     }
     
-    $gravatar_data = maybe_unserialize( $gravatars[$comment->comment_author_email]['url'] );
+    $gravatar_data = maybe_unserialize( $gravatars[$email]['url'] );
     
     if( is_array($gravatar_data) ){
-      $size = $options['size'];
+      $size   = $options['size'];
+      $rsize  = $size*2;
       
       //replace original size image
       if( isset($gravatar_data[$size]) ){
-        $image = str_replace( $url[1], $gravatar_data[$size], $image );
+        $cached_gravatar = apply_filters( 'fv_gravatar_url', $gravatar_data[ $size ], $size );
+        $image = str_replace( $url[1], $cached_gravatar, $image );
       }
       //replace retina size image
-      if( isset($gravatar_data[($size*2)]) && preg_match( '/srcset=\'(.*?)\'/', $image, $retina ) ){
-        $image = str_replace( $retina[1], $gravatar_data[($size*2)], $image );
+      if( isset($gravatar_data[ $rsize ]) && preg_match( '/srcset=\'(.*?)\'/', $image, $retina ) ){
+        $cached_gravatar = apply_filters( 'fv_gravatar_url', $gravatar_data[ $rsize ], $rsize );
+        $image = str_replace( $retina[1], $cached_gravatar, $image );
       }
     }
     else{
       // we have only one url saved in database
-      $image = str_replace( $url[1], $gravatar_data, $image );
+      $cached_gravatar = apply_filters( 'fv_gravatar_url', $gravatar_data, false );
+      $image = str_replace( $url[1], $cached_gravatar, $image );
     }
-    
+
     return $image;
   }
   
@@ -279,13 +294,11 @@ Class FV_Gravatar_Cache {
   }
   
   
-  /**
-   * Get the cache server path
-   *
-   * @return string
-   */
-  function GetCachePath() {
-    $options = get_option('fv_gravatar_cache');
+  function GetCache( $url = false ) {
+    require_once(ABSPATH . 'wp-admin/includes/file.php');
+
+    // Custom upload path disabled
+    /*$options = get_option('fv_gravatar_cache');
     
     if(isset($options['URL'])){
       $path = $options['URL'];
@@ -293,10 +306,40 @@ Class FV_Gravatar_Cache {
     
     if( $path == '' || !isset($path) ) {
       $path = WP_PLUGIN_DIR.'/'.dirname( plugin_basename( __FILE__ ) ).'/images';
-    }else {
-      $path = $_SERVER['DOCUMENT_ROOT'].$path;
+    }*/
+
+    if ( ! WP_Filesystem(true) ) {
+      return false;
     }
-    return rtrim( $path, '/' ).'/';  
+
+    global $wp_filesystem;
+
+    $aUpload    = wp_upload_dir();
+    $upload_dir = '/fv-gravatar-cache';
+
+    if( !$wp_filesystem->exists($aUpload['basedir'] . $upload_dir . '/') && !$wp_filesystem->mkdir($aUpload['basedir'] . $upload_dir . '/') ) {
+      return false;
+    }
+
+    if( $url ) {
+      $cache = $aUpload['baseurl']. $upload_dir . '/';
+      $cache = str_replace( array( 'http:', 'https:' ), '', $cache );
+    }
+    else {
+      $cache = $aUpload['basedir']. $upload_dir . '/';
+    }
+
+    return $cache;
+  }
+
+
+  /**
+   * Get the cache server path
+   *
+   * @return string
+   */
+  function GetCachePath() {
+    return $this->GetCache( false );
   }
   
   
@@ -306,16 +349,7 @@ Class FV_Gravatar_Cache {
    * @return string
    */
   function GetCacheURL() {
-    $options = get_option('fv_gravatar_cache');
-    
-    if(isset($options['URL'])){
-      $path = $options['URL'];
-    }
-    
-    if( $path == '' || !isset($path) ) {
-      $path = get_bloginfo( 'wpurl' ).'/wp-content/plugins/'.dirname( plugin_basename( __FILE__ ) ).'/images';
-    }
-    return rtrim( $path, '/' ).'/';
+    return $this->GetCache( true );
   }
   
   
@@ -381,7 +415,7 @@ Class FV_Gravatar_Cache {
       	elseif ( strpos($default, 'http://') === 0 )
       		$default = add_query_arg( 's', $size, $default );
       	$out = $default;
-      	$filename = 'default'.$size.'.png';
+      	$filename = 'default'.$size;
       }	
       //  get gravatar or report 404
     	else {
@@ -418,8 +452,8 @@ Class FV_Gravatar_Cache {
   	      return $options['default'];
   	  }
   	  ///  	  
-      $myURL = $this->GetCacheURL().$filename;
-      $myFile = $this->GetCachePath().$filename;
+      $myURL = $this->GetCacheURL().$filename.'.png';
+      $myFile = $this->GetCachePath().$filename.'.png';
       
       $fh = fopen( $myFile, 'w' );
       if( $fh ) {
@@ -455,7 +489,7 @@ Class FV_Gravatar_Cache {
   function OpenLog( ) {
     $options = get_option('fv_gravatar_cache');
     if( $options['debug'] == true ) {
-      $this->log = @fopen( $this->GetCachePath().'log.txt', "w+" );
+      $this->log = @fopen( $this->GetCachePath().'log-'.md5( AUTH_SALT ).'.txt', "w+" );
     }
   }
   
@@ -487,10 +521,10 @@ Class FV_Gravatar_Cache {
   function OptionsHead() {
       if(stripos($_SERVER['REQUEST_URI'],'/options-general.php?page=fv-gravatar-cache')!==FALSE) {
           $options = get_option('fv_gravatar_cache');
-          if(isset($_POST['fv_gravatar_cache_save'])) {              
+          if(isset($_POST['fv_gravatar_cache_save'])) {
               check_ajax_referer( 'fv_gravatar_cache', 'fv_gravatar_cache' );
               delete_option('fv_gravatar_cache_nag');
-              $options['URL'] = $_POST['URL'];
+              //$options['URL'] = $_POST['URL'];
               $options['size'] = $_POST['size'];
               if( isset( $_POST['retina'] ) ) {
                 $options['retina'] = true;
@@ -513,15 +547,21 @@ Class FV_Gravatar_Cache {
               update_option('fv_gravatar_cache', $options); 
               $options['default'] = $this->Cache( 'default', '' );
               update_option('fv_gravatar_cache', $options);  
-          }elseif(isset($_POST['fv_gravatar_cache_clear'])) {
+          }
+          elseif(isset($_POST['fv_gravatar_cache_clear'])) {
               check_ajax_referer( 'fv_gravatar_cache', 'fv_gravatar_cache' );
               global $wpdb;
               $wpdb->query( "TRUNCATE TABLE `{$wpdb->prefix}gravatars` " );
               update_option( 'fv_gravatar_cache_offset', 0 );
-          }elseif(isset($_POST['fv_gravatar_cache_refresh'])) {
+          }
+          elseif(isset($_POST['fv_gravatar_cache_refresh'])) {
               check_ajax_referer( 'fv_gravatar_cache', 'fv_gravatar_cache' );
               fv_gravatar_cache_cron_run();
-          }      
+          }
+
+          if( isset( $_GET['dismiss_directory_change_notice'] ) ) {
+            delete_option( 'fv_gravatar_cache_directory_changed' );
+          }
       }
   }
   
@@ -593,28 +633,12 @@ Class FV_Gravatar_Cache {
               <th scope="row">Default Gravatar:<br /><small>(Hit "Save changes" button to store locally selected "Default Avatar" from Settings -> Discussion. If you will change WordPress "Default Avatar" in future, you need to update it here as well.)</small></th><td><img src="<?php echo $options['default']; ?>" /></td>
             </tr>
             <tr valigin="top">
-              <th scope="row">Cache information:</th><td><?php echo $count; ?> items in cache (<a href="#" onclick="jQuery('#fv-gravatar-cache-list').toggle(); return false">show</a>)</td>
+              <th scope="row">Cache information:</th><td><?php echo $count; ?> items in cache (<a href="#" onclick="fv_gravatar_cache_load_list(0)">show</a>)</td>
             </tr>
             <tr valigin="top">
               <td colspan="2">
               <ul id="fv-gravatar-cache-list" style="display: none; ">
-              <?php
-              $cache = $this->CacheDB();
-              foreach( $cache AS $cache_key => $cache_item ) {
-                $cache_item_data = maybe_unserialize( $cache_item['url'] );
-                if( is_array($cache_item_data) ){
-                  if( !isset( $cache_item_data[$options['size']] ) ){
-                    continue;
-                  }
-                  $item_url = $cache_item_data[$options['size']];
-                }
-                else{
-                  $item_url = $cache_item_data;
-                }
-                echo '<li><img src="'.$item_url.'" width="16" height="16" /> '.$cache_key.'</li>';
-              }
-              ?>
-            
+
               </ul>
               </td>
             </tr>
@@ -630,9 +654,12 @@ Class FV_Gravatar_Cache {
             <tr valigin="top">
               <th scope="row">&nbsp;</th><td>&nbsp;</td>
             </tr>
+
+            <?php /*
             <tr valigin="top">
               <th scope="row">Custom Cache directory URL:</th><td><input name="URL" type="text" value="<?php if(isset($options['URL'])) echo $options['URL']; ?>" size="50" /> <small>(Leave empty for PLUGIN_DIR/images)</small></td>
             </tr>
+            */ ?>
             <tr valigin="top">
               <th scope="row">Gravatar size:</th><td><input name="size" type="text" value="<?php if( isset($options['size']) ) echo $options['size']; else echo '96';  ?>" size="8" />
               <?php if(isset( $guessed_size ) ) {
@@ -647,7 +674,7 @@ Class FV_Gravatar_Cache {
               <th scope="row">Daily cron:</th><td><input name="cron" type="checkbox" <?php if( isset( $options['cron'] ) && $options['cron'] ) echo 'checked="yes" '; ?> /> <small>(Will keep refreshing gravatars during day in smaller chunks)</small></td>
             </tr>
             <tr valigin="top">
-              <th scope="row">Debug mode:</th><td><input name="debug" type="checkbox" <?php if( $options['debug'] == true ) echo 'checked="yes" '; ?> /> <small>(check <a target="_blank" href="<?php echo $this->GetCacheURL().'log.txt'; ?>">log.txt</a> file in Cache directory)</small></td>
+              <th scope="row">Debug mode:</th><td><input name="debug" type="checkbox" <?php if( $options['debug'] == true ) echo 'checked="yes" '; ?> /> <small>(check <a target="_blank" href="<?php echo $this->GetCacheURL().'log-'.md5( AUTH_SALT ).'.txt'; ?>">log.txt</a> file in Cache directory)</small></td>
             </tr>
           </tbody>
         </table>
@@ -659,6 +686,51 @@ Class FV_Gravatar_Cache {
         </p>
       </form>
   </div>
+
+  <style>
+  .gravatar_list_paging {
+    margin-top: 20px;
+    display: table;
+  }
+
+  .gravatar_list_paging li {
+    display: inline-block;
+  }
+
+  .gravatar_list_paging li a {
+    padding: 10px;
+    border: solid 1px #DDDDDD;
+    vertical-align: middle;
+    text-decoration: none;
+    color: #333333;
+  }
+
+  .gravatar_list_paging li a.active {
+    font-weight: bold;
+  }
+
+  </style>
+
+  <script type="text/javascript">
+  function fv_gravatar_cache_load_list( page = 0 ) {
+
+    if( page == 0 ) {
+      jQuery('#fv-gravatar-cache-list').show();
+    }
+
+    var data = {
+      'action': 'load_gravatar_list',
+      'page': page
+    };
+
+    jQuery.post(ajaxurl, data, function(response) {
+      jQuery( "#fv-gravatar-cache-list" ).html( response );
+    });
+
+    return false;
+  }
+
+  </script>
   <?php
   }
   /*
@@ -686,6 +758,64 @@ Class FV_Gravatar_Cache {
     $this->OpenLog();
     $this->Log( date(DATE_RFC822) );
     $this->CloseLog();
+  }
+
+
+  function load_gravatar_list() {
+    global $wpdb;
+    $options = get_option('fv_gravatar_cache');
+
+    $total  = $wpdb->get_var( "SELECT count( email ) FROM `{$wpdb->prefix}gravatars` " );
+    $page   = intval( $_POST['page'] );
+    $limit  = 20;
+    $start  = $limit*$page;
+
+    $cache = $this->CacheDB( null, $limit, $start );
+    foreach( $cache AS $cache_key => $cache_item ) {
+      $cache_item_data = maybe_unserialize( $cache_item['url'] );
+      if( is_array($cache_item_data) ){
+        if( !isset( $cache_item_data[$options['size']] ) ){
+          continue;
+        }
+        $item_url = $cache_item_data[$options['size']];
+      }
+      else{
+        $item_url = $cache_item_data;
+      }
+      echo '<li><img src="'.$item_url.'" width="16" height="16" /> '.$cache_key.'</li>';
+    }
+
+    // build paging
+    echo '<li>';
+      echo '<ul class="gravatar_list_paging">';
+      if( $page > 0 ) {
+        echo '<li><a href="#" onclick="fv_gravatar_cache_load_list(0)">First</a></li>';
+        echo '<li><a href="#" onclick="fv_gravatar_cache_load_list('.($page-1).')">Previous</a></li>';
+      }
+
+      for( $i = $page - 2; $i < $page + 3; $i++ ) {
+        if( $i < 0 || $i > floor($total/$limit) ) {
+          continue;
+        }
+
+        if( $page == $i ) {
+          echo '<li><a class="active" href="#" onclick="return false">'.($i+1).'</a></li>'; // user friendly paging 0 => 1
+        }
+        else {
+          echo '<li><a href="#" onclick="fv_gravatar_cache_load_list('.$i.')">'.($i+1).'</a></li>'; // user friendly paging 0 => 1
+        }
+        
+      }
+
+      if( $start+$limit < $total ) {
+        echo '<li><a href="#" onclick="fv_gravatar_cache_load_list('.( $page+1 ).')">Next</a></li>';
+        echo '<li><a href="#" onclick="fv_gravatar_cache_load_list('.floor( $total/$limit ).')">Last</a></li>';
+      }
+
+      echo '</ul>';
+    echo '</li>';
+
+    die();
   }
 }
 
@@ -751,11 +881,11 @@ function fv_gravatar_cache_cron_run( ) {
     return;
   }
   //  make sure offset is not outsite the scope
-  $ids = $wpdb->get_col( "SELECT comment_ID FROM $wpdb->comments WHERE comment_author_email != '' AND comment_approved = '1' GROUP BY comment_author_email" );
-  $count = count( $ids );
+  $count = $wpdb->get_var( "SELECT COUNT( DISTINCT comment_author_email ) FROM $wpdb->comments WHERE comment_author_email != '' AND comment_approved = '1'" );
+
   //  update offset
   $offset = get_option( 'fv_gravatar_cache_offset');
-  if( $offset > $count || ( !isset($offset) || empty($offset) ) ) {
+  if( $offset >= $count || ( !isset($offset) || empty($offset) ) ) {
     $offset = 0;
     update_option( 'fv_gravatar_cache_offset', $offset );
   }
@@ -769,11 +899,11 @@ function fv_gravatar_cache_cron_run( ) {
   $iCompleted = 0;
   foreach( $emails AS $email ) {
     $FV_Gravatar_Cache->Cron( $email, $options['size'] );
-	$iCompleted++;
-	$time_taken = microtime(true) - $start;
-	if( $time_taken > 2) {
-	  break;
-	}
+    $iCompleted++;
+    $time_taken = microtime(true) - $start;
+    if( $time_taken > 2) {
+      break;
+    }
   }
   
   //  increase offset
