@@ -228,20 +228,24 @@ Class FV_Gravatar_Cache {
     $gravatar_data = maybe_unserialize( $gravatars[$email]['url'] );
     
     if( is_array($gravatar_data) ){
-      $size = $options['size'];
+      $size   = $options['size'];
+      $rsize  = $size*2;
       
       //replace original size image
       if( isset($gravatar_data[$size]) ){
-        $image = str_replace( $url[1], $gravatar_data[$size], $image );
+        $cached_gravatar = apply_filters( 'fv_gravatar_url', $gravatar_data[ $size ], $size );
+        $image = str_replace( $url[1], $cached_gravatar, $image );
       }
       //replace retina size image
-      if( isset($gravatar_data[($size*2)]) && preg_match( '/srcset=\'(.*?)\'/', $image, $retina ) ){
-        $image = str_replace( $retina[1], $gravatar_data[($size*2)], $image );
+      if( isset($gravatar_data[ $rsize ]) && preg_match( '/srcset=\'(.*?)\'/', $image, $retina ) ){
+        $cached_gravatar = apply_filters( 'fv_gravatar_url', $gravatar_data[ $rsize ], $rsize );
+        $image = str_replace( $retina[1], $cached_gravatar, $image );
       }
     }
     else{
       // we have only one url saved in database
-      $image = str_replace( $url[1], $gravatar_data, $image );
+      $cached_gravatar = apply_filters( 'fv_gravatar_url', $gravatar_data, false );
+      $image = str_replace( $url[1], $cached_gravatar, $image );
     }
 
     return $image;
