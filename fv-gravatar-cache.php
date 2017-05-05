@@ -2,14 +2,14 @@
 /*
 Plugin Name: FV Gravatar Cache
 Plugin URI: http://foliovision.com/seo-tools/wordpress/plugins/fv-gravatar-cache
-Version: 0.4
+Version: 0.4.1
 Description: Speeds up your website by making sure the gravatars are stored on your website and not loading from the gravatar server.
 Author: Foliovision
 Author URI: http://foliovision.com
 */
 
 Class FV_Gravatar_Cache {
-  private $version = '0.4';
+  private $version = '0.4.1';
 
   var $log;
   
@@ -144,14 +144,19 @@ Class FV_Gravatar_Cache {
       return false;
     }
 
-    //TODO add sizes as option in administration
-    $aGravatars = array();
-    $aGravatars[$size] = $this->Cache( $email, '', $size );
-    if( $options['retina'] ){
-      //download retina image
-      $aGravatars[($size*2)] = $this->Cache( $email, '', ($size*2) );
+    try {
+      $aGravatars         = array();
+      $aGravatars[$size]  = $this->Cache( $email, '', $size );
+
+      if( $options['retina'] ){ //download retina image
+        $aGravatars[($size*2)] = $this->Cache( $email, '', ($size*2) );
+      }
+
+      $gravatars_serialized = serialize($aGravatars);
     }
-    $gravatars_serialized = serialize($aGravatars);
+    catch( Exception $e ) {
+      $gravatars_serialized = '';
+    }
     
     if( !$last_update ) { // not in cache
       $wpdb->query( "INSERT INTO `{$wpdb->prefix}gravatars` (email,time,url) VALUES ( '{$email}', '{$time}', '{$gravatars_serialized}' ) " );
@@ -174,14 +179,24 @@ Class FV_Gravatar_Cache {
     
     $options = get_option( 'fv_gravatar_cache', array() );
 
+    //after update on 0.4.1 or higher
+    if( !isset( $options['version'] ) || version_compare( $options['version'], '0.4.1', '<' ) ) {
+      $wpdb->query( "UPDATE `{$wpdb->prefix}gravatars` SET url = '' WHERE url LIKE '%/default%'" );
+
+      try {
+        $options['default_retina'] = $this->Cache( 'default', '', $options['size'] * 2 );
+      }
+      catch( Exception $e ) {
+        $options['default_retina'] = $options['default'];
+      }
+    }
+
     //after update on 0.4 or higher
     if( !isset( $options['version'] ) || version_compare( $options['version'], '0.4', '<' ) ) {
       wp_clear_scheduled_hook('fv_gravatar_cache_cron');
-      
       $wpdb->query( "TRUNCATE TABLE `{$wpdb->prefix}gravatars` " );
-      update_option( 'fv_gravatar_cache_offset', 0 );
-
       update_option( 'fv_gravatar_cache_directory_changed', true );
+      update_option( 'fv_gravatar_cache_offset', 0 );
     }
 
     //version change
@@ -211,12 +226,16 @@ Class FV_Gravatar_Cache {
       return $image;
     }
     
+    // sizes
+    $size   = $options['size'];
+    $rsize  = $size*2;
+
     //  get the cached data
     $gravatars  = wp_cache_get('fv_gravatars_set', 'fv_gravatars');
     $email      = strtolower( $comment->comment_author_email );
     
     //  check out the cache. If the entry is not found, then you will have to insert it, no update.
-    if( isset( $gravatars ) && ( !isset( $gravatars[$email] ) || $gravatars[$email]['url'] == '' ) ) {
+    if( !isset( $gravatars[$email] ) ) {
       return $image;  //  just display the remote image, don't download the gravatar
     }
     
@@ -224,12 +243,19 @@ Class FV_Gravatar_Cache {
     if( !preg_match( '/src=\'(.*?)\'/', $image, $url ) ){
       return $image;
     }
-    
-    $gravatar_data = maybe_unserialize( $gravatars[$email]['url'] );
+
+    // unserialize data or create default entry
+    if( !empty( $gravatars[$email]['url'] ) ) {
+      $gravatar_data = maybe_unserialize( $gravatars[$email]['url'] );
+    }
+    else {
+      $gravatar_data = array(
+        $size   => $options['default'],
+        $rsize  => ( !empty( $options['default_retina'] ) ) ? $options['default_retina'] : $options['default']
+      );
+    }
     
     if( is_array($gravatar_data) ){
-      $size   = $options['size'];
-      $rsize  = $size*2;
       
       //replace original size image
       if( isset($gravatar_data[$size]) ){
@@ -238,7 +264,7 @@ Class FV_Gravatar_Cache {
       }
       //replace retina size image
       if( isset($gravatar_data[ $rsize ]) && preg_match( '/srcset=\'(.*?)\'/', $image, $retina ) ){
-        $cached_gravatar = apply_filters( 'fv_gravatar_url', $gravatar_data[ $rsize ], $rsize );
+        $cached_gravatar = apply_filters( 'fv_gravatar_url', $gravatar_data[ $rsize ].' 2x', $rsize );
         $image = str_replace( $retina[1], $cached_gravatar, $image );
       }
     }
@@ -375,17 +401,8 @@ Class FV_Gravatar_Cache {
    * @param string $url Gravatar URL.
    * @return string Gravatar URL.
    */
-  function Cache( $email= '', $url = '', $size = false ) {
-    $options = get_option('fv_gravatar_cache');
-    
-    if( !$size ){
-      $size = $options['size'];
-    }
-    
-    if( !$size ) {
-      return;
-    }
-    
+  function Cache( $email= '', $url = '', $size = 96 ) {
+
     //  if we don't have the gravatar url, we must create it
     if( $url == '' ) {
       if ( is_ssl() )
@@ -395,28 +412,23 @@ Class FV_Gravatar_Cache {
       //  get default gravatar; this might not work with autogenerated gravatars
       if( $email == 'default' ) {
     		$avatar_default = get_option('avatar_default');
-    		if ( empty($avatar_default) )
-    			$default = 'mystery';
-    		else
-    			$default = $avatar_default;
-      	if ( 'mystery' == $default )
-      		$default = "$host/avatar/ad516503a11cd5ca435acc9bb6523536?s={$size}"; // ad516503a11cd5ca435acc9bb6523536 == md5('unknown@gravatar.com')
-      	elseif ( 'blank' == $default ) {
-      		$default = includes_url('images/blank.gif');
-      		return $default;
-      	}
-      	/*elseif ( !empty($email) && 'gravatar_default' == $default )
-      		$default = '';*/
-      	elseif ( 'gravatar_default' == $default ) {
-      		$default = "$host/avatar/?s={$size}";
-      	}
-      	elseif ( empty($email) )
-      		$default = "$host/avatar/?d=$default&amp;s={$size}";
-      	elseif ( strpos($default, 'http://') === 0 )
-      		$default = add_query_arg( 's', $size, $default );
-      	$out = $default;
-      	$filename = 'default'.$size;
-      }	
+    		$default        = ( !empty($avatar_default) ) ? $avatar_default : 'mystery';
+
+        switch( $default ) {
+          case 'blank':
+            return includes_url('images/blank.gif');
+          case 'gravatar_default':
+            $out = "$host/avatar/?s={$size}";
+            break;
+          //case 'mystery':
+          default:
+            // dynamicly generated icons ( Identicon, Wavatar, MonsterID, Retro ) can't be used as dafault avatar stored in one file - we are using Mystery Preson as default
+            $out = "$host/avatar/ad516503a11cd5ca435acc9bb6523536?s={$size}"; // ad516503a11cd5ca435acc9bb6523536 == md5('unknown@gravatar.com')
+            break;
+        }
+
+      	$filename  = $default.$size;
+      }
       //  get gravatar or report 404
     	else {
       	$out = "$host/avatar/";
@@ -441,17 +453,18 @@ Class FV_Gravatar_Cache {
   	//set_time_limit(2);
   	// if directory is writable
   	if( $this->CheckWritable() ) {
+
       //  check if gravatar exists
       $headers = @get_headers( $out );
       if( stripos( $headers[0], '404' ) !== FALSE ) {
-        return $options['default'];
+        throw new Exception( "404 Gravatar not found", 1 );
       }
+
   	  $gravatar = $this->GetFromURL( $out );
-  	  ///  0.3.1 fix
   	  if( stripos( $gravatar, '404 File does not exist' ) !== FALSE || stripos( $gravatar, '404 Not Found' ) !== FALSE ) {
-  	      return $options['default'];
+        throw new Exception( "404 Gravatar not found", 1 );
   	  }
-  	  ///  	  
+
       $myURL = $this->GetCacheURL().$filename.'.png';
       $myFile = $this->GetCachePath().$filename.'.png';
       
@@ -460,7 +473,7 @@ Class FV_Gravatar_Cache {
         fwrite( $fh, $gravatar );
         fclose( $fh );
       }
-    }     
+    }
     
     return $myURL;
   }
@@ -524,29 +537,22 @@ Class FV_Gravatar_Cache {
           if(isset($_POST['fv_gravatar_cache_save'])) {
               check_ajax_referer( 'fv_gravatar_cache', 'fv_gravatar_cache' );
               delete_option('fv_gravatar_cache_nag');
-              //$options['URL'] = $_POST['URL'];
-              $options['size'] = $_POST['size'];
-              if( isset( $_POST['retina'] ) ) {
-                $options['retina'] = true;
+
+              $options['size']   = intval( $_POST['size'] ) ? intval( $_POST['size'] ) : 96;
+              $options['retina'] = isset( $_POST['retina'] );
+              $options['debug']  = isset( $_POST['debug'] );
+              $options['cron']   = isset( $_POST['cron'] );
+
+              try {
+                $options['default']        = $this->Cache( 'default', '', $options['size'] );
+                $options['default_retina'] = $this->Cache( 'default', '', $options['size'] * 2 );
               }
-              else{
-                $options['retina'] = false;
+              catch( Exception $e ) {
+                $options['default']        = includes_url('images/blank.gif');
+                $options['default_retina'] = includes_url('images/blank.gif');
               }
-              if( isset( $_POST['debug'] ) ) {
-                $options['debug'] = true;
-              }
-              else {
-                $options['debug'] = false;
-              }
-              if( isset( $_POST['cron'] ) ) {
-                $options['cron'] = true;
-              }
-              else {
-                $options['cron'] = false;
-              }
-              update_option('fv_gravatar_cache', $options); 
-              $options['default'] = $this->Cache( 'default', '' );
-              update_option('fv_gravatar_cache', $options);  
+
+              update_option('fv_gravatar_cache', $options);
           }
           elseif(isset($_POST['fv_gravatar_cache_clear'])) {
               check_ajax_referer( 'fv_gravatar_cache', 'fv_gravatar_cache' );
@@ -772,16 +778,22 @@ Class FV_Gravatar_Cache {
 
     $cache = $this->CacheDB( null, $limit, $start );
     foreach( $cache AS $cache_key => $cache_item ) {
-      $cache_item_data = maybe_unserialize( $cache_item['url'] );
-      if( is_array($cache_item_data) ){
-        if( !isset( $cache_item_data[$options['size']] ) ){
-          continue;
-        }
-        $item_url = $cache_item_data[$options['size']];
+      if( empty( $cache_item['url'] ) ) {
+        $item_url = $options['default'];
       }
       else{
-        $item_url = $cache_item_data;
+        $cache_item_data = maybe_unserialize( $cache_item['url'] );
+        if( is_array($cache_item_data) ){
+          if( !isset( $cache_item_data[$options['size']] ) ){
+            continue;
+          }
+          $item_url = $cache_item_data[$options['size']];
+        }
+        else{
+          $item_url = $cache_item_data;
+        }
       }
+
       echo '<li><img src="'.$item_url.'" width="16" height="16" /> '.$cache_key.'</li>';
     }
 
