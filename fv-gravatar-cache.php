@@ -144,15 +144,13 @@ Class FV_Gravatar_Cache {
       return false;
     }
 
+    $retina_size = $size*2;
+
     try {
-      $aGravatars         = array();
-      $aGravatars[$size]  = $this->Cache( $email, '', $size );
-
-      if( $options['retina'] ){ //download retina image
-        $aGravatars[($size*2)] = $this->Cache( $email, '', ($size*2) );
-      }
-
-      $gravatars_serialized = serialize($aGravatars);
+      $aGravatars               = array();
+      $aGravatars[$size]        = $this->Cache( $email, '', $size );
+      $aGravatars[$retina_size] = $this->Cache( $email, '', $retina_size );
+      $gravatars_serialized     = serialize($aGravatars);
     }
     catch( Exception $e ) {
       $gravatars_serialized = '';
@@ -179,24 +177,27 @@ Class FV_Gravatar_Cache {
     
     $options = get_option( 'fv_gravatar_cache', array() );
 
-    //after update on 0.4.1 or higher
-    if( !isset( $options['version'] ) || version_compare( $options['version'], '0.4.1', '<' ) ) {
-      $wpdb->query( "UPDATE `{$wpdb->prefix}gravatars` SET url = '' WHERE url LIKE '%/default%'" );
+    if( !get_option('fv_gravatar_cache_nag') ) { // do nothing if it's first activation or option doesn't exists
 
-      try {
-        $options['default_retina'] = $this->Cache( 'default', '', $options['size'] * 2 );
-      }
-      catch( Exception $e ) {
-        $options['default_retina'] = $options['default'];
-      }
-    }
+      //after update on 0.4.1 or higher
+      if( !isset( $options['version'] ) || version_compare( $options['version'], '0.4.1', '<' ) ) {
+        $wpdb->query( "UPDATE `{$wpdb->prefix}gravatars` SET url = '' WHERE url LIKE '%/default%'" );
 
-    //after update on 0.4 or higher
-    if( !isset( $options['version'] ) || version_compare( $options['version'], '0.4', '<' ) ) {
-      wp_clear_scheduled_hook('fv_gravatar_cache_cron');
-      $wpdb->query( "TRUNCATE TABLE `{$wpdb->prefix}gravatars` " );
-      update_option( 'fv_gravatar_cache_directory_changed', true );
-      update_option( 'fv_gravatar_cache_offset', 0 );
+        try {
+          $options['default_retina'] = $this->Cache( 'default', '', $options['size'] * 2 );
+        }
+        catch( Exception $e ) {
+          $options['default_retina'] = $options['default'];
+        }
+      }
+
+      //after update on 0.4 or higher
+      if( !isset( $options['version'] ) || version_compare( $options['version'], '0.4', '<' ) ) {
+        wp_clear_scheduled_hook('fv_gravatar_cache_cron');
+        $wpdb->query( "TRUNCATE TABLE `{$wpdb->prefix}gravatars` " );
+        update_option( 'fv_gravatar_cache_directory_changed', true );
+        update_option( 'fv_gravatar_cache_offset', 0 );
+      }
     }
 
     //version change
@@ -251,7 +252,7 @@ Class FV_Gravatar_Cache {
     else {
       $gravatar_data = array(
         $size   => $options['default'],
-        $rsize  => ( !empty( $options['default_retina'] ) ) ? $options['default_retina'] : $options['default']
+        $rsize  => $options['default_retina']
       );
     }
     
@@ -539,7 +540,6 @@ Class FV_Gravatar_Cache {
               delete_option('fv_gravatar_cache_nag');
 
               $options['size']   = intval( $_POST['size'] ) ? intval( $_POST['size'] ) : 96;
-              $options['retina'] = isset( $_POST['retina'] );
               $options['debug']  = isset( $_POST['debug'] );
               $options['cron']   = isset( $_POST['cron'] );
 
@@ -672,9 +672,6 @@ Class FV_Gravatar_Cache {
                 echo '<small>(<acronym title="You can get this value by checking out image properties for any of the gravatars in your browser">Guessed Gravatar size: '.$guessed_size.'</acronyme>)</small>';
               }
               ?></td>
-            </tr>
-            <tr valigin="top">
-              <th scope="row">Retina images:</th><td><input name="retina" type="checkbox" <?php if( isset( $options['retina'] ) && $options['retina'] ) echo 'checked="yes" '; ?> /> <small>(Download retina images for gravatars)</small></td>
             </tr>
             <tr valigin="top">
               <th scope="row">Daily cron:</th><td><input name="cron" type="checkbox" <?php if( isset( $options['cron'] ) && $options['cron'] ) echo 'checked="yes" '; ?> /> <small>(Will keep refreshing gravatars during day in smaller chunks)</small></td>

@@ -26,8 +26,9 @@ This plugin solves this problem by:
 == Changelog ==
 
 = 0.4.1 =
-* fixed retina images srcset
 * added retina alternative for default gravatar
+* fixed retina images srcset
+* retina images downloading enabled by default now
 
 = 0.4 =
 * changed images directory to wp-content/uploads/fv-gravatar-cache/
