@@ -2,7 +2,7 @@
 Contributors: FolioVision
 Tags: gravatar,avatar,cache
 Requires at least: 2.7
-Tested up to: 4.7
+Tested up to: 4.8
 Stable tag: trunk
 
 Speeds up your website by making sure the gravatars are stored on your website and not loading from the gravatar server.
@@ -24,6 +24,9 @@ This plugin solves this problem by:
 [Support and more information](http://foliovision.com/seo-tools/wordpress/plugins/fv-gravatar-cache)
 
 == Changelog ==
+
+= 0.4.2 =
+* Fixing PHP notices
 
 = 0.4.1 =
 * added retina alternative for default gravatar

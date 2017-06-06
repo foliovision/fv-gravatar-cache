@@ -2,14 +2,14 @@
 /*
 Plugin Name: FV Gravatar Cache
 Plugin URI: http://foliovision.com/seo-tools/wordpress/plugins/fv-gravatar-cache
-Version: 0.4.1
+Version: 0.4.2
 Description: Speeds up your website by making sure the gravatars are stored on your website and not loading from the gravatar server.
 Author: Foliovision
 Author URI: http://foliovision.com
 */
 
 Class FV_Gravatar_Cache {
-  private $version = '0.4.1';
+  private $version = '0.4.2';
 
   var $log;
   
@@ -144,15 +144,23 @@ Class FV_Gravatar_Cache {
       return false;
     }
 
-    $retina_size = $size*2;
+    $rsize = $size*2;
 
     try {
-      $aGravatars               = array();
-      $aGravatars[$size]        = $this->Cache( $email, '', $size );
-      $aGravatars[$retina_size] = $this->Cache( $email, '', $retina_size );
+      $aGravatars = array(
+        $size   => $this->Cache( $email, '', $size ),
+        $rsize  => $this->Cache( $email, '', $rsize )
+      );
+
       $gravatars_serialized     = serialize($aGravatars);
     }
     catch( Exception $e ) {
+      $aGravatars = array(
+        $size   => $options['default'],
+        $rsize  => $options['default_retina']
+      );
+
+      // we set default avatars because of return value, but we will save empty string instead
       $gravatars_serialized = '';
     }
     
