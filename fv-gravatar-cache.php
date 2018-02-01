@@ -2,14 +2,14 @@
 /*
 Plugin Name: FV Gravatar Cache
 Plugin URI: http://foliovision.com/seo-tools/wordpress/plugins/fv-gravatar-cache
-Version: 0.4.2
+Version: 0.4.3
 Description: Speeds up your website by making sure the gravatars are stored on your website and not loading from the gravatar server.
 Author: Foliovision
 Author URI: http://foliovision.com
 */
 
 Class FV_Gravatar_Cache {
-  private $version = '0.4.2';
+  private $version = '0.4.3';
 
   var $log;
   
@@ -31,7 +31,8 @@ Class FV_Gravatar_Cache {
 
     //  change gravatar HTML if cache is configured
     if( get_option( 'fv_gravatar_cache') ) {
-      add_filter( 'get_avatar', array( &$this, 'GetAvatar'), 10, 2); 
+      add_filter( 'get_avatar', array( &$this, 'GetAvatar'), 9, 2);
+      add_filter( 'fv_gravatar_url', array( &$this, 'cdn_rewrite'), 9, 2); 
     }
     //  prepare the gravatar cache data prior to displaying comments
     add_filter( 'comments_array', array( &$this, 'CommentsArray' ) );
@@ -213,6 +214,13 @@ Class FV_Gravatar_Cache {
       $options['version'] = $this->version ;
       update_option( 'fv_gravatar_cache', $options);
     }
+  }
+  
+  function cdn_rewrite( $url ) {
+    if( function_exists('get_rocket_cdn_url') ) {
+      $url = get_rocket_cdn_url( str_replace( '//', 'https://', $url) );
+    }
+    return $url;
   }
   
   /**
@@ -898,7 +906,7 @@ function fv_gravatar_cache_cron_run( ) {
     return;
   }
   //  make sure offset is not outsite the scope
-  $count = $wpdb->get_var( "SELECT COUNT( DISTINCT comment_author_email ) FROM $wpdb->comments WHERE comment_author_email != '' AND comment_approved = '1'" );
+  $count = $wpdb->get_var( "SELECT COUNT( DISTINCT comment_author_email ) FROM $wpdb->comments WHERE comment_author_email != '' AND comment_approved = '1' " );
 
   //  update offset
   $offset = get_option( 'fv_gravatar_cache_offset');
