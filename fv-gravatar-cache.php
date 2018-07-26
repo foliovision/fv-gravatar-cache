@@ -403,10 +403,12 @@ Class FV_Gravatar_Cache {
    * @return array Unchanged array of all the displayed comments.
    */
   function CommentsArray( $comments ) {
-    $fv_gravatars = $this->CacheDB( $comments );
-    $myexpire = 120;
-    //  use wp cache to store the data
-    wp_cache_set('fv_gravatars_set', $fv_gravatars, 'fv_gravatars', $myexpire);
+    if( count($comments) > 0 ) {
+      $fv_gravatars = $this->CacheDB( $comments );
+      $myexpire = 120;
+      //  use wp cache to store the data
+      wp_cache_set('fv_gravatars_set', $fv_gravatars, 'fv_gravatars', $myexpire);
+    }
     return $comments;
   }
   
