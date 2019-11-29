@@ -279,7 +279,14 @@ Class FV_Gravatar_Cache {
 
     //  get the cached data
     $gravatars  = wp_cache_get('fv_gravatars_set', 'fv_gravatars');
-    $email      = strtolower( $comment->comment_author_email );
+
+    if( !empty($comment) && !empty($comment->comment_author_email) ) {
+      $email = strtolower( $comment->comment_author_email );
+    } else if( stripos($id_or_email,'@') !== false ) {
+      $email = strtolower($id_or_email);
+    } else {
+      return $image;
+    }
     
     //  check out the cache. If the entry is not found, then you will have to insert it, no update.
     if( !isset( $gravatars[$email] ) ) {
