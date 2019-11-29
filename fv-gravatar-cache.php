@@ -73,19 +73,29 @@ Class FV_Gravatar_Cache {
     global $wpdb;
     //  if array of displayed comments is present, just get the desired gravatars
     if( $comments !== NULL && count( $comments ) > 0 ) {
-      //  put all the emails into string
+      //  put all the emails into array
       $all_emails = array();
       foreach( $comments AS $comment ) {
-        $all_emails[] = '\''. strtolower( $comment->comment_author_email ).'\'';
+        $all_emails[] = strtolower( $comment->comment_author_email );
       }
       $all_emails = array_unique( $all_emails );
-      $all_emails_string = implode( ',', $all_emails );
+
+      // how many entries will we select?
+      $how_many = count($all_emails);
+
+      // prepare the right amount of placeholders
+      $placeholders = array_fill(0, $how_many, '%s');
+
+      // glue together all the placeholders...
+      // $format = '%s, %s, %s, %s, %s, [...]'
+      $format = implode(', ', $placeholders);
+
       //  get data
-      $fv_gravatars = $wpdb->get_results( "SELECT email, url, time FROM `{$wpdb->prefix}gravatars` WHERE email IN ({$all_emails_string}) " );
+      $fv_gravatars = $wpdb->get_results( $wpdb->prepare( "SELECT email, url, time FROM `{$wpdb->prefix}gravatars` WHERE email IN (".$format.") ", $all_emails ) );
     }
     //  or get the whole cache data
     else {
-      $fv_gravatars = $wpdb->get_results( "SELECT email, url, time FROM `{$wpdb->prefix}gravatars` LIMIT {$limit} OFFSET {$start}" );
+      $fv_gravatars = $wpdb->get_results( $wpdb->prepare( "SELECT email, url, time FROM `{$wpdb->prefix}gravatars` LIMIT %d OFFSET %d", $limit, $start ) );
     }
     //  make it associative array
     foreach( $fv_gravatars AS $key => $value ) {
@@ -140,7 +150,7 @@ Class FV_Gravatar_Cache {
     
     $email  = strtolower( $email );
     $time   = time();
-    $last_update = $wpdb->get_var( "SELECT `time` FROM `{$wpdb->prefix}gravatars` WHERE email = '{$email}'" );
+    $last_update = $wpdb->get_var( $wpdb->prepare( "SELECT `time` FROM `{$wpdb->prefix}gravatars` WHERE email = '%s'", $email) );
     if( $time < $last_update + 24*3600 ) {
       return false;
     }
@@ -166,11 +176,31 @@ Class FV_Gravatar_Cache {
     }
     
     if( !$last_update ) { // not in cache
-      $wpdb->query( "INSERT INTO `{$wpdb->prefix}gravatars` (email,time,url) VALUES ( '{$email}', '{$time}', '{$gravatars_serialized}' ) " );
+      $wpdb->insert( $wpdb->prefix.'gravatars', array(
+        'email' => $email,
+        'time' => $time,
+        'url' => $gravatars_serialized
+      ), array(
+        '%s',
+        '%d',
+        '%s'
+      ) );
+      
       $this->Log( 'INSERT, '.$gravatars_serialized .', '.$size.', '.$email.', '.date(DATE_RFC822).' Error: '.var_export( $wpdb->last_error, true )."\r\n" );
     }
     else {
-      $wpdb->query( "UPDATE `{$wpdb->prefix}gravatars` SET url = '{$gravatars_serialized}', time = '{$time}' WHERE email = '{$email}' " );
+      $wpdb->update( $wpdb->prefix.'gravatars', array(
+        'time' => $time,
+        'url' => $gravatars_serialized
+      ), array(
+        'email' => $email
+      ), array(
+        '%d',
+        '%s'
+      ), array(
+        '%s'
+      ) );
+
       $this->Log( 'UPDATE, '.$gravatars_serialized .', '.$size.', '.$email.', '.date(DATE_RFC822)."\r\n" );
     }
     
@@ -917,7 +947,8 @@ function fv_gravatar_cache_cron_run( ) {
     update_option( 'fv_gravatar_cache_offset', $offset );
   }
   //  get 25 email addresses to be processed
-  $emails = $wpdb->get_col( "SELECT comment_author_email FROM $wpdb->comments WHERE comment_author_email != '' AND comment_approved = '1' GROUP BY comment_author_email LIMIT {$offset},25" );
+  $emails = $wpdb->get_col( $wpdb->prepare( "SELECT comment_author_email FROM $wpdb->comments WHERE comment_author_email != '' AND comment_approved = '1' GROUP BY comment_author_email LIMIT %d, 25", $offset ) );
+
   $FV_Gravatar_Cache->OpenLog();
   $FV_Gravatar_Cache->Log( 'Processing '.count( $emails ).' gravatars'."\r\n" );
   //  process email addresses
