@@ -2,14 +2,14 @@
 /*
 Plugin Name: FV Gravatar Cache
 Plugin URI: http://foliovision.com/seo-tools/wordpress/plugins/fv-gravatar-cache
-Version: 0.4.4
+Version: 0.4.5
 Description: Speeds up your website by making sure the gravatars are stored on your website and not loading from the gravatar server.
 Author: Foliovision
 Author URI: http://foliovision.com
 */
 
 Class FV_Gravatar_Cache {
-  private $version = '0.4.4';
+  private $version = '0.4.5';
 
   var $log;
   
@@ -280,10 +280,18 @@ Class FV_Gravatar_Cache {
     //  get the cached data
     $gravatars  = wp_cache_get('fv_gravatars_set', 'fv_gravatars');
 
-    if( !empty($comment) && !empty($comment->comment_author_email) ) {
+    if( !empty($comment) && !empty($comment->comment_author_email) ) { // global WP_Comment
       $email = strtolower( $comment->comment_author_email );
-    } else if( stripos($id_or_email,'@') !== false ) {
+      
+    } else if( is_object( $id_or_email ) && !empty($id_or_email->user_email) ) { // WP_User
+      $email = $id_or_email->user_email;
+      
+    } else if( is_object( $id_or_email ) && !empty($id_or_email->comment_author_email) ) { // WP_Comment
+      $email = $id_or_email->comment_author_email;
+      
+    } else if( is_string($id_or_email) && stripos($id_or_email,'@') !== false ) { // user email
       $email = strtolower($id_or_email);
+      
     } else {
       return $image;
     }

@@ -25,7 +25,7 @@ This plugin solves this problem by:
 
 == Changelog ==
 
-= 0.4.4 =
+= 0.4.5 =
 * Security fixes
 * WordPress 5.3 compatibility checked
 
