@@ -944,6 +944,10 @@ add_action( 'fv_gravatar_cache_cron', 'fv_gravatar_cache_cron_run' );
   */
 function fv_gravatar_cache_cron_run( ) {
   global $FV_Gravatar_Cache, $wpdb;
+  if( empty($FV_Gravatar_Cache) ) {
+    $FV_Gravatar_Cache = new FV_Gravatar_Cache;
+  }
+  
   $options = get_option( 'fv_gravatar_cache');
   if( !$options ) {
     return;
