@@ -524,9 +524,14 @@ Class FV_Gravatar_Cache {
           'timeout' => 5
         )
       ) );
-      $headers = @get_headers( $out );
-      if( stripos( $headers[0], '404' ) !== FALSE ) {
-        throw new Exception( "404 Gravatar not found", 1 );
+
+      $response = wp_remote_head($out);
+      if( is_wp_error($response) ) {
+        throw new Exception( "HTTP check of gravatar failed", 1 );
+      }
+      $code = wp_remote_retrieve_response_code($response);
+      if( $code != '200' && $code != '301' && $code != '302' ) {
+        throw new Exception( "HTTP ".$code." when checking gravatar", 1 );
       }
 
   	  $gravatar = $this->GetFromURL( $out );
