@@ -519,6 +519,11 @@ Class FV_Gravatar_Cache {
   	if( $this->CheckWritable() ) {
 
       //  check if gravatar exists
+      stream_context_set_default( array(
+        'http' => array(
+          'timeout' => 5
+        )
+      ) );
       $headers = @get_headers( $out );
       if( stripos( $headers[0], '404' ) !== FALSE ) {
         throw new Exception( "404 Gravatar not found", 1 );
