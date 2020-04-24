@@ -2,14 +2,14 @@
 /*
 Plugin Name: FV Gravatar Cache
 Plugin URI: http://foliovision.com/seo-tools/wordpress/plugins/fv-gravatar-cache
-Version: 0.4.6
+Version: 0.4.7
 Description: Speeds up your website by making sure the gravatars are stored on your website and not loading from the gravatar server.
 Author: Foliovision
 Author URI: http://foliovision.com
 */
 
 Class FV_Gravatar_Cache {
-  private $version = '0.4.6';
+  private $version = '0.4.7';
 
   var $log;
   
@@ -340,48 +340,6 @@ Class FV_Gravatar_Cache {
   }
   
   
-  /**
-   * Used to open URLs. Have to do some checks because of varying server settings
-   *
-   * @param string $url
-   * @return string
-   */
-  function GetFromURL($url) {
-  	// Use file_get_contents
-  	if (ini_get('allow_url_fopen') && function_exists('file_get_contents')) {
-  		return @file_get_contents($url);
-  	}
-  	// Use fopen
-  	if (ini_get('allow_url_fopen') && !function_exists('file_get_contents')) {
-  		if (false === $fh = fopen($url, 'rb', false)) {
-  			user_error('file_get_contents() failed to open stream: No such file or directory', E_USER_WARNING);
-  			return false;
-  		}
-  		//clearstatcache();
-  		if ($fsize = @filesize($url)) {
-  			$data = fread($fh, $fsize);
-  		} else {
-  			$data = '';
-  			while (!feof($fh)) {
-  				$data .= fread($fh, 8192);
-  			}
-  		}
-  		fclose($fh);
-  		return $data;
-  	}
-  	// Use cURL
-  	if (function_exists('curl_init')) {
-  		$c = curl_init($url);
-  		curl_setopt($c, CURLOPT_RETURNTRANSFER, 1);
-  		curl_setopt($c, CURLOPT_TIMEOUT, 15);
-  		$data = @curl_exec($c);
-  		curl_close($c);
-  		return $data;
-  	}
-  	return false;
-  }
-  
-  
   function GetCache( $url = false ) {
     require_once(ABSPATH . 'wp-admin/includes/file.php');
 
@@ -518,26 +476,16 @@ Class FV_Gravatar_Cache {
   	// if directory is writable
   	if( $this->CheckWritable() ) {
 
-      //  check if gravatar exists
-      stream_context_set_default( array(
-        'http' => array(
-          'timeout' => 5
-        )
-      ) );
-
-      $response = wp_remote_head($out);
+      $response = wp_remote_get( $out, array( 'timeout' => 5 ) );
       if( is_wp_error($response) ) {
-        throw new Exception( "HTTP check of gravatar failed", 1 );
+        throw new Exception( "FV Gravatar Cache: HTTP request failed", 1 );
       }
       $code = wp_remote_retrieve_response_code($response);
       if( $code != '200' && $code != '301' && $code != '302' ) {
-        throw new Exception( "HTTP ".$code." when checking gravatar", 1 );
+        throw new Exception( "FV Gravatar Cache: HTTP ".$code." when checking gravatar", 1 );
       }
-
-  	  $gravatar = $this->GetFromURL( $out );
-  	  if( stripos( $gravatar, '404 File does not exist' ) !== FALSE || stripos( $gravatar, '404 Not Found' ) !== FALSE ) {
-        throw new Exception( "404 Gravatar not found", 1 );
-  	  }
+      
+      $gravatar = wp_remote_retrieve_body($response);
 
       $myURL = $this->GetCacheURL().$filename.'.png';
       $myFile = $this->GetCachePath().$filename.'.png';
