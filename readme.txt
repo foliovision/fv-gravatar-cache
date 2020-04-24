@@ -25,6 +25,9 @@ This plugin solves this problem by:
 
 == Changelog ==
 
+= 0.4.6 =
+* Fix for PHP timeout when Gravatar server unreachable during comment posting
+
 = 0.4.5 =
 * Security fixes
 * WordPress 5.3 compatibility checked
