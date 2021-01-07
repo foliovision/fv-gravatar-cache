@@ -938,7 +938,7 @@ function fv_gravatar_cache_cron_run( ) {
     $FV_Gravatar_Cache->Cron( $email, $options['size'] );
     $iCompleted++;
     $time_taken = microtime(true) - $start;
-    if( $time_taken > 2) {
+    if( $time_taken > 10 ) {
       break;
     }
   }
