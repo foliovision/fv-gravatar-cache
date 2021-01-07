@@ -283,10 +283,10 @@ Class FV_Gravatar_Cache {
     if( !empty($comment) && !empty($comment->comment_author_email) ) { // global WP_Comment
       $email = strtolower( $comment->comment_author_email );
       
-    } else if( is_object( $id_or_email ) && !empty($id_or_email->user_email) ) { // WP_User
+    } else if( is_object( $id_or_email ) && isset($id_or_email->user_email) ) { // WP_User
       $email = $id_or_email->user_email;
       
-    } else if( is_object( $id_or_email ) && !empty($id_or_email->comment_author_email) ) { // WP_Comment
+    } else if( is_object( $id_or_email ) && isset($id_or_email->comment_author_email) ) { // WP_Comment
       $email = $id_or_email->comment_author_email;
       
     } else if( is_string($id_or_email) && stripos($id_or_email,'@') !== false ) { // user email
@@ -811,6 +811,8 @@ Class FV_Gravatar_Cache {
           $item_url = $cache_item_data;
         }
       }
+      
+      $cache_key = $cache_key ? $cache_key : '(no email address)';
 
       echo '<li><img src="'.$item_url.'" width="16" height="16" /> '.$cache_key.'</li>';
     }
@@ -924,7 +926,7 @@ function fv_gravatar_cache_cron_run( ) {
     update_option( 'fv_gravatar_cache_offset', $offset );
   }
   //  get 25 email addresses to be processed
-  $emails = $wpdb->get_col( $wpdb->prepare( "SELECT comment_author_email FROM $wpdb->comments WHERE comment_author_email != '' AND comment_approved = '1' GROUP BY comment_author_email LIMIT %d, 25", $offset ) );
+  $emails = $wpdb->get_col( $wpdb->prepare( "SELECT comment_author_email FROM $wpdb->comments WHERE comment_approved = '1' GROUP BY comment_author_email LIMIT %d, 25", $offset ) );
 
   $FV_Gravatar_Cache->OpenLog();
   $FV_Gravatar_Cache->Log( 'Processing '.count( $emails ).' gravatars'."\r\n" );
