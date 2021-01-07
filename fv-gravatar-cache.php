@@ -695,10 +695,10 @@ Class FV_Gravatar_Cache {
               ?></td>
             </tr>
             <tr valigin="top">
-              <th scope="row">Daily cron:</th><td><input name="cron" type="checkbox" <?php if( isset( $options['cron'] ) && $options['cron'] ) echo 'checked="yes" '; ?> /> <small>(Will keep refreshing gravatars during day in smaller chunks)</small></td>
+              <th scope="row">Daily cron:</th><td><input name="cron" type="checkbox" <?php if( !isset($options['cron']) || $options['cron'] ) echo 'checked="yes" '; ?> /> <small>(Will keep refreshing gravatars during day in smaller chunks)</small></td>
             </tr>
             <tr valigin="top">
-              <th scope="row">Debug mode:</th><td><input name="debug" type="checkbox" <?php if( $options['debug'] == true ) echo 'checked="yes" '; ?> /> <small>(check <a target="_blank" href="<?php echo $this->GetCacheURL().'log-'.md5( AUTH_SALT ).'.txt'; ?>">log.txt</a> file in Cache directory)</small></td>
+              <th scope="row">Debug mode:</th><td><input name="debug" type="checkbox" <?php if( isset($options['debug']) && $options['debug'] == true ) echo 'checked="yes" '; ?> /> <small>(check <a target="_blank" href="<?php echo $this->GetCacheURL().'log-'.md5( AUTH_SALT ).'.txt'; ?>">log.txt</a> file in Cache directory)</small></td>
             </tr>
           </tbody>
         </table>
