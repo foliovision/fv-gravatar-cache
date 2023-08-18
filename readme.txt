@@ -2,7 +2,7 @@
 Contributors: FolioVision
 Tags: gravatar,avatar,cache
 Requires at least: 2.7
-Tested up to: 6.0
+Tested up to: 6.3
 Stable tag: trunk
 
 Speeds up your website by making sure the gravatars are stored on your website and not loading from the gravatar server.
@@ -138,3 +138,11 @@ After installing, make sure you visit the plugin settings to make sure the plugi
 == Screenshots ==
 
 1. FV Gravatar Cache screen
+
+== Testing ==
+
+1. Add comment to a post with email associated with gravatar
+
+1.1. Reload page
+
+1.2. Check if gravatar is loaded from your website
