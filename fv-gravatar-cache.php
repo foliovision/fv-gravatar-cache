@@ -250,6 +250,13 @@ Class FV_Gravatar_Cache {
     if( function_exists('get_rocket_cdn_url') ) {
       $url = get_rocket_cdn_url( str_replace( '//', 'https://', $url) );
     }
+
+    // check if protocol is set
+    if( stripos( $url, 'http' ) === false ) {
+      $site_protocol = stripos( site_url(), 'https' ) === false ? 'http' : 'https';
+      $url = $site_protocol . ':' . $url;
+    }
+
     return $url;
   }
   
