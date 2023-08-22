@@ -138,11 +138,3 @@ After installing, make sure you visit the plugin settings to make sure the plugi
 == Screenshots ==
 
 1. FV Gravatar Cache screen
-
-== Testing ==
-
-1. Add comment to a post with email associated with gravatar
-
-1.1. Reload page
-
-1.2. Check if gravatar is loaded from your website
