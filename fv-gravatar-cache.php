@@ -41,6 +41,18 @@ Class FV_Gravatar_Cache {
     add_action('edit_comment', array(&$this,'NewComment'), 100000, 1);
 
     add_action( 'wp_ajax_load_gravatar_list', array( $this, 'load_gravatar_list' ) );
+
+    add_action(
+      'init',
+      function() {
+        remove_filter( 'get_avatar', 'wppb_changeDefaultAvatar', 21, 5 );
+        remove_filter( 'get_avatar_url', 'wppb_changeDefaultAvatarUrl', 21, 5 );
+      }
+    );
+
+    // User update should purge the cache
+    add_action( 'profile_update', array( $this, 'profile_update' ) );
+
     // Load cached avatars if listing comments in wp-admin using the list table
     add_filter(
       'comments_list_table_query_args',
@@ -163,7 +175,7 @@ Class FV_Gravatar_Cache {
    * @param int $size Desired gravatar size
    * @return string URL of cached gravatar
   */
-  function Cron( $email, $size = '96' ) {
+  function Cron( $email, $size = '96', $force = false ) {
     global $wpdb;
   	if ( ! get_option('show_avatars') )
   		return false;
@@ -176,7 +188,7 @@ Class FV_Gravatar_Cache {
     $email  = strtolower( $email );
     $time   = time();
     $last_update = $wpdb->get_var( $wpdb->prepare( "SELECT `time` FROM `{$wpdb->prefix}gravatars` WHERE email = '%s'", $email) );
-    if( $time < $last_update + 24*3600 ) {
+    if( ! $force && $time < $last_update + 24*3600 ) {
       return false;
     }
 
@@ -453,6 +465,15 @@ Class FV_Gravatar_Cache {
    */
   function Cache( $email= '', $url = '', $size = 96 ) {
 
+    if ( function_exists( 'wppb_changeDefaultAvatar' ) ) {
+      $options = get_option( 'fv_gravatar_cache');
+      $img = wppb_changeDefaultAvatar( '', $email, $options['size'], false, false );
+
+      if ( preg_match( '~src=["\'](.*?)["\']~', $img, $src ) ) {
+        return $src[1];
+      }
+    }
+    
     //  if we don't have the gravatar url, we must create it
     if( $url == '' ) {
       if ( is_ssl() )
@@ -802,6 +823,37 @@ Class FV_Gravatar_Cache {
   		array_unshift($links, $settings_link);
   	}
   	return $links;
+  }
+
+  function profile_update( $user_id ) {
+
+    if ( function_exists( 'wppb_changeDefaultAvatar' ) ) {
+      $user = get_user_by( 'id', $user_id );
+
+      $options = get_option( 'fv_gravatar_cache');
+
+      $this->Cron( $user->user_email, $options['size'], true );
+
+      if ( is_multisite() ) {
+        $blogs = get_blogs_of_user( $user_id );
+
+        foreach ( $blogs as $blog ) {
+          // TODO: Is it on for the blog?
+
+          switch_to_blog( $blog->userblog_id );
+
+          $user = get_user_by( 'id', $user_id );
+
+          $options = get_option( 'fv_gravatar_cache');
+
+          $this->Cron( $user->user_email, $options['size'], true );
+
+          restore_current_blog();
+        }
+      }
+
+    }
+
   }
   /*
   Cron starter
