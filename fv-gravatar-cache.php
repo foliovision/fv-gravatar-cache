@@ -41,6 +41,31 @@ Class FV_Gravatar_Cache {
     add_action('edit_comment', array(&$this,'NewComment'), 100000, 1);
 
     add_action( 'wp_ajax_load_gravatar_list', array( $this, 'load_gravatar_list' ) );
+    // Load cached avatars if listing comments in wp-admin using the list table
+    add_filter(
+      'comments_list_table_query_args',
+      function( $args ) {
+        add_filter( 'the_comments', function( $comments ) {
+          $cached_gravatars  = wp_cache_get('fv_gravatars_set', 'fv_gravatars');
+          if ( !$cached_gravatars ) {
+            $cached_gravatars = array();
+          }
+
+          $new_gravatars = $this->CacheDB( $comments );
+
+          // It seems this whole deal can run multiple times, so we merge the caches
+          $cached_gravatars = array_merge( $cached_gravatars, $new_gravatars );
+
+          $myexpire = 120;
+          //  use wp cache to store the data
+          wp_cache_set('fv_gravatars_set', $cached_gravatars, 'fv_gravatars', $myexpire);
+
+          return $comments;
+        } );
+        return $args;
+      }
+    );
+
   }
   
   
@@ -267,10 +292,6 @@ Class FV_Gravatar_Cache {
    */
   function GetAvatar( $image, $id_or_email ) {
     global $comment;
-
-    if( is_admin() ){
-      return $image;
-    }
     
     if( false === ( $options = get_option('fv_gravatar_cache') ) ){
       return $image;
