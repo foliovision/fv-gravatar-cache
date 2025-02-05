@@ -285,7 +285,9 @@ Class FV_Gravatar_Cache {
   
   function cdn_rewrite( $url ) {
     if( function_exists('get_rocket_cdn_url') ) {
-      $url = get_rocket_cdn_url( str_replace( '//', 'https://', $url) );
+      if ( stripos( $url, '//' ) === 0 ) {
+        $url = get_rocket_cdn_url( str_replace( '//', 'https://', $url) );
+      }
     }
 
     // check if protocol is set
