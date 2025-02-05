@@ -316,7 +316,7 @@ Class FV_Gravatar_Cache {
     }
     
     // sizes
-    $size   = $options['size'];
+    $size   = ! empty( $options['size'] ) ? $options['size'] : 96;
     $rsize  = $size*2;
 
     //  get the cached data
@@ -708,7 +708,7 @@ Class FV_Gravatar_Cache {
               <th scope="row">Cache directory URL:</th><td><?php echo $this->GetCacheURL(); ?></td>
             </tr>
             <tr valigin="top">
-              <th scope="row">Default Gravatar:<br /><small>(Hit "Save changes" button to store locally selected "Default Avatar" from Settings -> Discussion. If you will change WordPress "Default Avatar" in future, you need to update it here as well.)</small></th><td><img src="<?php echo $options['default']; ?>" /></td>
+              <th scope="row">Default Gravatar:<br /><small>(Hit "Save changes" button to store locally selected "Default Avatar" from Settings -> Discussion. If you will change WordPress "Default Avatar" in future, you need to update it here as well.)</small></th><td><img src="<?php echo esc_attr( ! empty( $options['default'] ) ? $options['default'] : false ); ?>" /></td>
             </tr>
             <tr valigin="top">
               <th scope="row">Cache information:</th><td><?php echo $count; ?> items in cache (<a href="#" onclick="fv_gravatar_cache_load_list(0)">show</a>)</td>
