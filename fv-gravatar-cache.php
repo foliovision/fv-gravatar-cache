@@ -795,7 +795,8 @@ Class FV_Gravatar_Cache {
 
     var data = {
       'action': 'load_gravatar_list',
-      'page': page
+      'page': page,
+      'nonce': '<?php echo wp_create_nonce('fv_gravatar_cache_load_list'); ?>'
     };
 
     jQuery.post(ajaxurl, data, function(response) {
@@ -868,6 +869,11 @@ Class FV_Gravatar_Cache {
 
 
   function load_gravatar_list() {
+    if ( ! wp_verify_nonce( $_POST['nonce'], 'fv_gravatar_cache_load_list' ) ) {
+      echo 'Invalid nonce';
+      exit;
+    }
+
     global $wpdb;
     $options = get_option('fv_gravatar_cache');
 
