@@ -90,7 +90,8 @@ Class FV_Gravatar_Cache {
     }
 
     if( get_option( 'fv_gravatar_cache_directory_changed') ) {
-      echo '<div class="notice notice-warning"><p>FV Gravatar Cache directory has been changed. Please purge cache in all other caching plugins. <a href="'.get_bloginfo( 'wpurl' ).'/wp-admin/options-general.php?page=fv-gravatar-cache&dismiss_directory_change_notice"><strong>I understand</strong></a></p></div>'; 
+      $dismiss_url = wp_nonce_url( admin_url( 'options-general.php?page=fv-gravatar-cache' ), 'fv_gravatar_cache_dismiss_directory_change_notice', 'fv_gravatar_cache_dismiss_directory_change_notice' );
+      echo '<div class="notice notice-warning"><p>FV Gravatar Cache directory has been changed. Please purge cache in all other caching plugins. <a href="' . esc_attr( $dismiss_url ) . '"><strong>I understand</strong></a></p></div>'; 
     }
   }
 
@@ -637,8 +638,10 @@ Class FV_Gravatar_Cache {
               fv_gravatar_cache_cron_run();
           }
 
-          if( isset( $_GET['dismiss_directory_change_notice'] ) ) {
-            delete_option( 'fv_gravatar_cache_directory_changed' );
+          if( isset( $_GET['fv_gravatar_cache_dismiss_directory_change_notice'] ) ) {
+            if ( wp_verify_nonce( $_GET['fv_gravatar_cache_dismiss_directory_change_notice'], 'fv_gravatar_cache_dismiss_directory_change_notice2' ) ) {
+              delete_option( 'fv_gravatar_cache_directory_changed' );
+            }
           }
       }
   }
