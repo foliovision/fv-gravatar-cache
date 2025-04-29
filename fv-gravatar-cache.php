@@ -819,7 +819,7 @@ Class FV_Gravatar_Cache {
   {
   	if (function_exists('add_options_page'))
   	{
-  		add_options_page('FV Gravatar Cache', 'FV Gravatar Cache', 'edit_pages', 'fv-gravatar-cache', array( &$this, 'OptionsManage' ) );
+  		add_options_page('FV Gravatar Cache', 'FV Gravatar Cache', 'manage_options', 'fv-gravatar-cache', array( &$this, 'OptionsManage' ) );
   	}
   }
   function plugin_action_links($links, $file) {
