@@ -38,7 +38,7 @@ class FV_Gravatar_Cache {
       add_filter( 'get_avatar', array( &$this, 'GetAvatar'), 9, 2);
       add_filter( 'fv_gravatar_url', array( &$this, 'cdn_rewrite'), 9, 2); 
     }
-    //  prepare the gravatar cache data prior to displaying comments
+    //  prepare the gravatar cache data prior to displaying comments, for PHP themes
     add_filter( 'comments_array', array( &$this, 'CommentsArray' ) );
     //  refresh gravatars also on comment submit and save
     add_action('comment_post', array(&$this,'NewComment'), 100000, 1);
@@ -61,24 +61,47 @@ class FV_Gravatar_Cache {
     add_filter(
       'comments_list_table_query_args',
       function( $args ) {
-        add_filter( 'the_comments', function( $comments ) {
-          $cached_gravatars  = wp_cache_get('fv_gravatars_set', 'fv_gravatars');
-          if ( !$cached_gravatars ) {
-            $cached_gravatars = array();
-          }
-
-          $new_gravatars = $this->CacheDB( $comments );
-
-          // It seems this whole deal can run multiple times, so we merge the caches
-          $cached_gravatars = array_merge( $cached_gravatars, $new_gravatars );
-
-          $myexpire = 120;
-          //  use wp cache to store the data
-          wp_cache_set('fv_gravatars_set', $cached_gravatars, 'fv_gravatars', $myexpire);
-
-          return $comments;
-        } );
+        $this->are_we_doing_comments = true;
         return $args;
+      }
+    );
+
+    //  prepare the gravatar cache data prior to displaying comments, for block themes
+    add_filter(
+      'render_block_context',
+      function( $context, $block ) {
+        if ( ! empty( $block['blockName'] ) && 'core/comment-template' === $block['blockName'] ) {
+          $this->are_we_doing_comments = true;
+        }
+        return $context;
+      },
+      10,
+      2
+    );
+
+    // conditionally preload gravatars for comments from database
+    add_filter(
+      'the_comments',
+      function( $comments ) {
+        if ( ! $this->are_we_doing_comments ) {
+          return $comments;
+        }
+
+        $cached_gravatars  = wp_cache_get('fv_gravatars_set', 'fv_gravatars');
+        if ( !$cached_gravatars ) {
+          $cached_gravatars = array();
+        }
+
+        $new_gravatars = $this->CacheDB( $comments );
+
+        // It seems this whole deal can run multiple times, so we merge the caches
+        $cached_gravatars = array_merge( $cached_gravatars, $new_gravatars );
+
+        $myexpire = 120;
+        //  use wp cache to store the data
+        wp_cache_set('fv_gravatars_set', $cached_gravatars, 'fv_gravatars', $myexpire);
+
+        return $comments;
       }
     );
 
