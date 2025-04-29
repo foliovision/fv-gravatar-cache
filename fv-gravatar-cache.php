@@ -8,7 +8,11 @@ Author: Foliovision
 Author URI: http://foliovision.com
 */
 
-Class FV_Gravatar_Cache {
+if ( ! defined( 'ABSPATH' ) ) {
+  exit;
+}
+
+class FV_Gravatar_Cache {
   private $version = '0.4.8';
 
   var $log;
