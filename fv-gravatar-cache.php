@@ -564,7 +564,7 @@ class FV_Gravatar_Cache {
    */
   function Log( $string ) {
     $options = get_option('fv_gravatar_cache');
-    if( $options['debug'] == true ) {
+    if ( ! empty( $options['debug'] ) && $options['debug'] == true ) {
       if( $this->log ) {
         @fwrite( $this->log, $string, strlen( $string ) );
       }
@@ -579,7 +579,7 @@ class FV_Gravatar_Cache {
    */
   function OpenLog( ) {
     $options = get_option('fv_gravatar_cache');
-    if( $options['debug'] == true ) {
+    if ( ! empty( $options['debug'] ) && $options['debug'] == true ) {
       $this->log = @fopen( $this->GetCachePath().'log-'.md5( AUTH_SALT ).'.txt', "w+" );
     }
   }
@@ -1030,7 +1030,7 @@ function fv_gravatar_cache_cron_run( ) {
   $start = microtime(true);
   $iCompleted = 0;
   foreach( $emails AS $email ) {
-    $FV_Gravatar_Cache->Cron( $email, $options['size'] );
+    $FV_Gravatar_Cache->Cron( $email, ! empty( $options['size'] ) ? $options['size'] : 96 );
     $iCompleted++;
     $time_taken = microtime(true) - $start;
     if( $time_taken > 10 ) {
