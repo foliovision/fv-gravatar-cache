@@ -13,7 +13,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 class FV_Gravatar_Cache {
-  private $version = '0.4.8';
+  private $are_we_doing_comments = false;
 
   var $log;
   
