@@ -533,10 +533,10 @@ class FV_Gravatar_Cache {
       //  get gravatar or report 404
     	else {
       	$out = "$host/avatar/";
-      	$out .= md5( strtolower( $email ) );
+      	$out .= hash( 'sha256', strtolower( $email ) );
     	  $out .= '?d=404'; //  this must be the first parameter in order to work with 404 instead of default gravatars
     	  $out .= '&s='.$size;
-    	  $filename = md5( strtolower( $email ) ).'x'.$size;
+    	  $filename = hash( 'sha256', strtolower( $email ) ).'x'.$size;
     	}
     	$rating = get_option('avatar_rating');
     	if ( !empty( $rating ) ) {
@@ -546,7 +546,7 @@ class FV_Gravatar_Cache {
     //  if we know the URL already
     else {
       $out = $url;
-      $filename = md5( strtolower( $email ) ).'x'.$size;
+      $filename = hash( 'sha256', strtolower( $email ) ).'x'.$size;
     }
   	/*
   	Download part
