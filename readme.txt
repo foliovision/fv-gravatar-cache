@@ -2,7 +2,7 @@
 Contributors: FolioVision
 Tags: gravatar,avatar,cache
 Requires at least: 2.7
-Tested up to: 6.7
+Tested up to: 6.8
 Stable tag: trunk
 
 Speeds up your website by making sure the gravatars are stored on your website and not loading from the gravatar server.
@@ -24,6 +24,14 @@ This plugin solves this problem by:
 [Support and more information](http://foliovision.com/seo-tools/wordpress/plugins/fv-gravatar-cache)
 
 == Changelog ==
+
+= 0.5 =
+* Tested up to WordPress 6.8
+* Fix PHP warnings before settings are saved
+* Fix settings page access to be admins only
+* Security: Added nonces for settings page list of avatars
+* Security: Added permissions check for settings saving as an addition to the existing nonce
+* Security: Use SHA-256 hashing for cached file names which is stronger than MD5
 
 = 0.4.8 =
 * Fix for avatar caching for comments without email address (rare cases)

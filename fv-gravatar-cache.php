@@ -2,7 +2,7 @@
 /*
 Plugin Name: FV Gravatar Cache
 Plugin URI: http://foliovision.com/seo-tools/wordpress/plugins/fv-gravatar-cache
-Version: 0.4.8
+Version: 0.5
 Description: Speeds up your website by making sure the gravatars are stored on your website and not loading from the gravatar server.
 Author: Foliovision
 Author URI: http://foliovision.com
@@ -13,6 +13,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 class FV_Gravatar_Cache {
+  private $version = '0.5';
+
   private $are_we_doing_comments = false;
 
   var $log;
