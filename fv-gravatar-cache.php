@@ -611,6 +611,7 @@ class FV_Gravatar_Cache {
   */
   function OptionsHead() {
       if(stripos($_SERVER['REQUEST_URI'],'/options-general.php?page=fv-gravatar-cache')!==FALSE) {
+        if ( current_user_can( 'manage_options' ) ) {
           $options = get_option('fv_gravatar_cache');
           if(isset($_POST['fv_gravatar_cache_save'])) {
               check_ajax_referer( 'fv_gravatar_cache', 'fv_gravatar_cache' );
@@ -648,6 +649,7 @@ class FV_Gravatar_Cache {
               delete_option( 'fv_gravatar_cache_directory_changed' );
             }
           }
+        }
       }
   }
   
