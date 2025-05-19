@@ -912,6 +912,11 @@ class FV_Gravatar_Cache {
       exit;
     }
 
+    if ( ! current_user_can( 'manage_options' ) ) {
+      echo 'Not authorized';
+      exit;
+    }
+
     global $wpdb;
     $options = get_option('fv_gravatar_cache');
 
