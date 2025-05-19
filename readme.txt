@@ -29,6 +29,7 @@ This plugin solves this problem by:
 * Tested up to WordPress 6.8
 * Fix PHP warnings before settings are saved
 * Fix settings page access to be admins only
+* Added uninstall procedure to remove files and database table
 * Security: Added nonces for settings page list of avatars
 * Security: Added permissions check for settings saving as an addition to the existing nonce
 * Security: Use SHA-256 hashing for cached file names which is stronger than MD5
