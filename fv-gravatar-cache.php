@@ -645,7 +645,6 @@ class FV_Gravatar_Cache {
               $options['size']   = intval( $_POST['size'] ) ? intval( $_POST['size'] ) : 96;
               $options['debug']  = isset( $_POST['debug'] );
               $options['cron']   = isset( $_POST['cron'] );
-              $options['uninstall'] = isset( $_POST['uninstall'] );
 
               try {
                 $options['default']        = $this->Cache( 'default', '', $options['size'] );
@@ -785,9 +784,6 @@ class FV_Gravatar_Cache {
             </tr>
             <tr valigin="top">
               <th scope="row">Debug mode:</th><td><input name="debug" type="checkbox" <?php if( isset($options['debug']) && $options['debug'] == true ) echo 'checked="yes" '; ?> /> <small>(check <a target="_blank" href="<?php echo $this->GetCacheURL().'log-'.md5( AUTH_SALT ).'.txt'; ?>">log.txt</a> file in Cache directory)</small></td>
-            </tr>
-            <tr valigin="top">
-              <th scope="row">Uninstall:</th><td><input name="uninstall" type="checkbox" <?php if( isset($options['uninstall']) && $options['uninstall'] == true ) echo 'checked="yes" '; ?> /> <small>(Remove all plugin data including cached avatars when deactivating the plugin)</small></td>
             </tr>
           </tbody>
         </table>
@@ -1003,37 +999,38 @@ register_activation_hook( __FILE__, 'fv_gravatar_cache_activation' );
 
 function fv_gravatar_cache_deactivation() {
   wp_clear_scheduled_hook('fv_gravatar_cache_cron');
+}
+register_deactivation_hook( __FILE__, 'fv_gravatar_cache_deactivation' );
 
+function fv_gravatar_cache_uninstall() {
   $options = get_option('fv_gravatar_cache');
-  if ( isset( $options['uninstall'] ) && $options['uninstall'] == true ) {
-    // Delete all plugin options
-    delete_option('fv_gravatar_cache');
-    delete_option('fv_gravatar_cache_nag');
-    delete_option('fv_gravatar_cache_directory_changed');
-    delete_option('fv_gravatar_cache_offset');
-    
-    // Delete the gravatars table
-    global $wpdb;
-    $wpdb->query("DROP TABLE IF EXISTS `{$wpdb->prefix}gravatars`");
-    
-    // Delete cached avatar files
-    $aUpload = wp_upload_dir();
-    if ( ! empty( $aUpload['basedir'] ) ) {
-      $cache_path = $aUpload['basedir'] . '/fv-gravatar-cache';
-      if ( is_dir( $cache_path ) ) {
-        $files = glob( $cache_path . '/*' );
-        foreach ( $files as $file ) {
-          if ( is_file( $file ) ) {
-            unlink( $file );
-          }
+
+  // Delete all plugin options
+  delete_option('fv_gravatar_cache');
+  delete_option('fv_gravatar_cache_nag');
+  delete_option('fv_gravatar_cache_directory_changed');
+  delete_option('fv_gravatar_cache_offset');
+  
+  // Delete the gravatars table
+  global $wpdb;
+  $wpdb->query("DROP TABLE IF EXISTS `{$wpdb->prefix}gravatars`");
+  
+  // Delete cached avatar files
+  $aUpload = wp_upload_dir();
+  if ( ! empty( $aUpload['basedir'] ) ) {
+    $cache_path = $aUpload['basedir'] . '/fv-gravatar-cache';
+    if ( is_dir( $cache_path ) ) {
+      $files = glob( $cache_path . '/*' );
+      foreach ( $files as $file ) {
+        if ( is_file( $file ) ) {
+          unlink( $file );
         }
-        rmdir( $cache_path );
       }
+      rmdir( $cache_path );
     }
   }
 }
-
-register_deactivation_hook( __FILE__, 'fv_gravatar_cache_deactivation' );
+register_uninstall_hook( __FILE__, 'fv_gravatar_cache_uninstall' );
 
 
 /*
