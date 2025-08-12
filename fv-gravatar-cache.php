@@ -18,7 +18,9 @@ class FV_Gravatar_Cache {
   private $are_we_doing_comments = false;
 
   var $log;
-  
+
+  private $dont_cache = 0;
+
   /*
   Init all the hooks
   */
